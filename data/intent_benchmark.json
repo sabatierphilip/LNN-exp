@@ -1,0 +1,17 @@
+[
+  {"text": "Look up the latest papers on neuro-symbolic reasoning and give me key takeaways.", "intent": "search"},
+  {"text": "Summarize this architecture proposal into three bullet points.", "intent": "summarize"},
+  {"text": "What did we decide yesterday about external memory size?", "intent": "recall"},
+  {"text": "Draft a concise response explaining why MANN helps with long context.", "intent": "generate"},
+  {"text": "Create a step-by-step roadmap to train a compact world model chatbot.", "intent": "plan"},
+  {"text": "Find benchmark results for Dreamer-v3 in dialogue settings.", "intent": "search"},
+  {"text": "Condense the meeting notes into one paragraph for the team.", "intent": "summarize"},
+  {"text": "Remind me which tokenizer we picked for the BERT baseline.", "intent": "recall"},
+  {"text": "Write an answer comparing ACT-R and SOAR for our use case.", "intent": "generate"},
+  {"text": "Plan the experiment matrix for ablations on memory slots and depth.", "intent": "plan"},
+  {"text": "Can you gather sources about predictive coding networks?", "intent": "search"},
+  {"text": "Give me the short version of this long training report.", "intent": "summarize"},
+  {"text": "Which loss function did we use in run_17?", "intent": "recall"},
+  {"text": "Compose a polished project update for stakeholders.", "intent": "generate"},
+  {"text": "Lay out milestones for integrating a symbolic reasoning layer.", "intent": "plan"}
+]
