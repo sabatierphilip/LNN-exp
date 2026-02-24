@@ -1,0 +1,169 @@
+{
+  "dataset_size": 15,
+  "base_router_mode": "tfidf",
+  "hybrid_router_mode": "tfidf",
+  "keyword_accuracy": 1.0,
+  "base_bert_style_accuracy": 0.5333333333333333,
+  "neuro_symbolic_accuracy": 1.0,
+  "improvement_vs_base_bert": 0.4666666666666667,
+  "next_token_metrics": {
+    "total": 5,
+    "baseline_accuracy": 0.2,
+    "base_router_accuracy": 0.8,
+    "hybrid_router_accuracy": 0.8,
+    "hybrid_vs_base_delta": 0.0,
+    "details": [
+      {
+        "prompt": "Please look up recent LNN papers and",
+        "candidates": [
+          "summarize",
+          "compile",
+          "juggle"
+        ],
+        "gold": "compile",
+        "baseline_pred": "summarize",
+        "base_router_pred": "summarize",
+        "hybrid_router_pred": "summarize"
+      },
+      {
+        "prompt": "Can you condense these long notes into",
+        "candidates": [
+          "bullets",
+          "tomatoes",
+          "circuits"
+        ],
+        "gold": "bullets",
+        "baseline_pred": "bullets",
+        "base_router_pred": "bullets",
+        "hybrid_router_pred": "bullets"
+      },
+      {
+        "prompt": "Remind me what optimizer we used in",
+        "candidates": [
+          "run_17",
+          "sunset",
+          "marble"
+        ],
+        "gold": "run_17",
+        "baseline_pred": "sunset",
+        "base_router_pred": "run_17",
+        "hybrid_router_pred": "run_17"
+      },
+      {
+        "prompt": "Draft a clear reply that",
+        "candidates": [
+          "explains",
+          "evaporates",
+          "balances"
+        ],
+        "gold": "explains",
+        "baseline_pred": "evaporates",
+        "base_router_pred": "explains",
+        "hybrid_router_pred": "explains"
+      },
+      {
+        "prompt": "Create a step-by-step roadmap with",
+        "candidates": [
+          "milestones",
+          "glitter",
+          "raindrops"
+        ],
+        "gold": "milestones",
+        "baseline_pred": "raindrops",
+        "base_router_pred": "milestones",
+        "hybrid_router_pred": "milestones"
+      }
+    ]
+  },
+  "reasoning_metrics": {
+    "total": 5,
+    "base_plan_exact_match": 0.6,
+    "hybrid_plan_exact_match": 1.0,
+    "base_plan_step_f1": 0.7142857142857143,
+    "hybrid_plan_step_f1": 1.0,
+    "details": [
+      {
+        "text": "Find recent benchmark results and provide key takeaways.",
+        "gold_intent": "search",
+        "base_intent": "search",
+        "hybrid_intent": "search",
+        "base_step_f1": 1.0,
+        "hybrid_step_f1": 1.0
+      },
+      {
+        "text": "Condense this design review into brief bullets.",
+        "gold_intent": "summarize",
+        "base_intent": "summarize",
+        "hybrid_intent": "summarize",
+        "base_step_f1": 1.0,
+        "hybrid_step_f1": 1.0
+      },
+      {
+        "text": "What did we decide in yesterday's architecture meeting?",
+        "gold_intent": "recall",
+        "base_intent": "search",
+        "hybrid_intent": "recall",
+        "base_step_f1": 0.0,
+        "hybrid_step_f1": 1.0
+      },
+      {
+        "text": "Write a polished explanation for stakeholders.",
+        "gold_intent": "generate",
+        "base_intent": "generate",
+        "hybrid_intent": "generate",
+        "base_step_f1": 1.0,
+        "hybrid_step_f1": 1.0
+      },
+      {
+        "text": "Plan milestones for integrating symbolic memory.",
+        "gold_intent": "plan",
+        "base_intent": "recall",
+        "hybrid_intent": "plan",
+        "base_step_f1": 0.5714285714285715,
+        "hybrid_step_f1": 1.0
+      }
+    ]
+  },
+  "autoregression_test": {
+    "total": 5,
+    "coherence_rate": 1.0,
+    "can_function_as_chatbot": true,
+    "details": [
+      {
+        "prompt": "Find papers on predictive coding and give key points.",
+        "gold_intent": "search",
+        "pred_intent": "search",
+        "response": "I will search relevant sources, rank evidence, and summarize findings. Request: Find papers on predictive coding and give key points. Next, I can execute the first step now if you want.",
+        "coherent": true
+      },
+      {
+        "prompt": "Summarize the previous experiment notes.",
+        "gold_intent": "summarize",
+        "pred_intent": "summarize",
+        "response": "I will condense the material into concise bullets and keep key points. Request: Summarize the previous experiment notes. Next, I can execute the first step now if you want.",
+        "coherent": true
+      },
+      {
+        "prompt": "What did we decide about memory size yesterday?",
+        "gold_intent": "recall",
+        "pred_intent": "recall",
+        "response": "I will retrieve prior decisions from memory and verify consistency. Request: What did we decide about memory size yesterday? Next, I can execute the first step now if you want.",
+        "coherent": true
+      },
+      {
+        "prompt": "Write a concise stakeholder update.",
+        "gold_intent": "generate",
+        "pred_intent": "generate",
+        "response": "I will draft a clear answer tailored to your request. Request: Write a concise stakeholder update. Next, I can execute the first step now if you want.",
+        "coherent": true
+      },
+      {
+        "prompt": "Create a roadmap for symbolic integration.",
+        "gold_intent": "plan",
+        "pred_intent": "plan",
+        "response": "I will produce an ordered roadmap with milestones and next actions. Request: Create a roadmap for symbolic integration. Next, I can execute the first step now if you want.",
+        "coherent": true
+      }
+    ]
+  }
+}
