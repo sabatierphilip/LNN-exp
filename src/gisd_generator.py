@@ -1,7 +1,7 @@
 """Guided Iterative Semantic Diffusion (GISD) text generation for BERT masked LMs.
 
-This module implements a non-autoregressive generation algorithm that starts from a
-fully masked suffix and iteratively reveals/revises tokens in parallel.
+GISD is a non-autoregressive decoder that starts from a fully masked suffix and
+iteratively denoises all output positions in parallel while allowing revisions.
 """
 
 from __future__ import annotations
@@ -22,15 +22,13 @@ class GISDConfig:
     temp_start: float = 1.6  # exploration temperature at step 0
     temp_end: float = 0.55  # commitment temperature at step T
     temp_gamma: float = 1.4  # annealing curve sharpness
-    steering_alpha_start: float = 0.80  # semantic guidance strength at step 0
-    steering_alpha_end: float = 0.15  # semantic guidance strength at final step
-    top_k_vocab: int = 512  # restrict steering to top-k vocab tokens before top-p
-    top_p: float = 0.90  # nucleus mass retained for sampling
-    repetition_penalty: float = 1.25  # down-weight already chosen tokens
-    min_tokens: int = 18  # global lower bound for generated suffix length
-    max_tokens: int = 80  # global upper bound for generated suffix length
-    revision_conf_threshold: float = 0.25  # low-confidence revealed tokens are remasked
-    context_max_tokens: int = 64  # prompt prefix budget
+    steering_alpha_start: float = 0.80
+    steering_alpha_end: float = 0.15
+    top_k_vocab: int = 512  # restrict steering to top-k vocab tokens
+    top_p: float = 0.90
+    repetition_penalty: float = 1.25
+    min_tokens: int = 18
+    max_tokens: int = 80
     intent_length_hints: Dict[str, float] = field(
         default_factory=lambda: {
             "search": 1.0,
@@ -40,6 +38,10 @@ class GISDConfig:
             "plan": 1.3,
         }
     )
+    context_max_tokens: int = 64  # prompt prefix budget
+    revision_conf_base: float = 0.25  # baseline remask confidence threshold
+    entropy_boost: float = 0.30  # boosts reveal/remask aggressiveness when uncertainty is high
+    prompt_complexity_weight: float = 0.25  # scales output budget by prompt complexity
 
 
 class GuidedIterativeSemanticDiffusion:
@@ -82,15 +84,32 @@ class GuidedIterativeSemanticDiffusion:
         frac = min(max(frac, 0.0), 1.0)
         return float(end + (start - end) * ((1.0 - frac) ** gamma))
 
-    def _intent_budget(self, intent: str) -> int:
-        multiplier = self.config.intent_length_hints.get(intent, 1.0)
-        base = int(round((self.config.min_tokens + self.config.max_tokens) / 2))
-        n = int(round(base * multiplier))
-        return max(self.config.min_tokens, min(self.config.max_tokens, n))
+    @staticmethod
+    def _linear_anneal(start: float, end: float, frac: float) -> float:
+        frac = min(max(frac, 0.0), 1.0)
+        return float(start + (end - start) * frac)
 
     def _prefix_ids(self, prompt: str) -> List[int]:
         ids = self.tokenizer(prompt, add_special_tokens=False)["input_ids"]
         return list(ids[: self.config.context_max_tokens])
+
+    def _prompt_complexity(self, prompt: str) -> float:
+        words = [w.strip(".,!?;:\"'()[]{}") for w in prompt.split() if w.strip()]
+        if not words:
+            return 0.0
+        unique_ratio = len({w.lower() for w in words}) / len(words)
+        avg_len = sum(len(w) for w in words) / len(words)
+        punctuation = sum(ch in ",;:.!?" for ch in prompt) / max(1, len(prompt))
+        raw = 0.45 * unique_ratio + 0.45 * min(1.0, avg_len / 8.0) + 0.10 * min(1.0, punctuation * 20)
+        return float(min(1.0, max(0.0, raw)))
+
+    def _intent_budget(self, intent: str, prompt: str) -> int:
+        multiplier = self.config.intent_length_hints.get(intent, 1.0)
+        base = 0.5 * (self.config.min_tokens + self.config.max_tokens)
+        complexity = self._prompt_complexity(prompt)
+        dynamic = base * (1.0 + self.config.prompt_complexity_weight * (complexity - 0.5))
+        n = int(round(dynamic * multiplier))
+        return max(self.config.min_tokens, min(self.config.max_tokens, n))
 
     def _semantic_target_vec(self, prompt: str):
         encoded = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=self.config.context_max_tokens)
@@ -99,25 +118,37 @@ class GuidedIterativeSemanticDiffusion:
             cls = self.model(**encoded).last_hidden_state[:, 0, :]
         return self.F.normalize(cls.squeeze(0), p=2, dim=-1)
 
-    def _apply_top_p(self, logits):
+    def _compute_entropy(self, probs) -> float:
+        eps = 1e-12
+        entropy = -(probs * self.torch.log(probs + eps)).sum().item()
+        max_entropy = math.log(max(2, probs.numel()))
+        return float(entropy / max_entropy)
+
+    def _apply_top_p(self, logits, top_p: float):
         sorted_logits, sorted_idx = self.torch.sort(logits, descending=True)
         probs = self.torch.softmax(sorted_logits, dim=-1)
         csum = self.torch.cumsum(probs, dim=-1)
-        keep = csum <= self.config.top_p
+        keep = csum <= top_p
         if keep.numel() and not bool(keep[0]):
             keep[0] = True
         filtered = self.torch.full_like(logits, float("-inf"))
-        kept_idx = sorted_idx[keep]
-        filtered[kept_idx] = logits[kept_idx]
+        filtered[sorted_idx[keep]] = logits[sorted_idx[keep]]
         return filtered
 
-    def _sample_position(self, raw_logits, token_counts: Dict[int, int], steering_scores, alpha: float, temp: float):
+    def _dynamic_top_p(self, frac: float, entropy_ratio: float) -> float:
+        # higher uncertainty -> retain more mass; late steps shrink support.
+        base = self.config.top_p
+        delta = 0.08 * (entropy_ratio - 0.5) - 0.10 * frac
+        return float(min(0.98, max(0.72, base + delta)))
+
+    def _sample_position(self, raw_logits, token_counts: Dict[int, int], steering_scores, alpha: float, temp: float, frac: float):
         logits = raw_logits / max(1e-6, temp)
 
         if token_counts:
+            penalty_scale = math.log(max(1.01, self.config.repetition_penalty))
             for tok, freq in token_counts.items():
-                if tok >= 0 and tok < logits.shape[0]:
-                    logits[tok] = logits[tok] - math.log(self.config.repetition_penalty) * float(freq)
+                if 0 <= tok < logits.shape[0]:
+                    logits[tok] = logits[tok] - penalty_scale * (1.0 + math.sqrt(freq))
 
         if self.config.top_k_vocab > 0:
             top_vals, top_idx = self.torch.topk(logits, k=min(self.config.top_k_vocab, logits.shape[-1]))
@@ -128,11 +159,32 @@ class GuidedIterativeSemanticDiffusion:
         else:
             logits = logits + alpha * steering_scores
 
-        filtered = self._apply_top_p(logits)
+        prelim_probs = self.torch.softmax(logits, dim=-1)
+        entropy_ratio = self._compute_entropy(prelim_probs)
+        dynamic_top_p = self._dynamic_top_p(frac, entropy_ratio)
+        filtered = self._apply_top_p(logits, dynamic_top_p)
         probs = self.torch.softmax(filtered, dim=-1)
+
         chosen = int(self.torch.multinomial(probs, 1).item())
-        conf = float(probs[chosen].item())
-        return chosen, conf
+        confidence = float(probs[chosen].item())
+        return chosen, confidence, entropy_ratio
+
+    def _compute_reveal_count(self, masked_left: int, frac: float, mean_entropy: float) -> int:
+        if masked_left <= 0:
+            return 0
+        ramp = 0.5 + 0.5 * frac
+        uncertainty_boost = 1.0 + self.config.entropy_boost * (mean_entropy - 0.5)
+        reveal_ratio = self.config.reveal_fraction * ramp * uncertainty_boost
+        reveal_ratio = min(0.95, max(0.05, reveal_ratio))
+        return max(1, int(math.ceil(masked_left * reveal_ratio)))
+
+    def _compute_revision_threshold(self, frac: float, mean_conf: float, mean_entropy: float) -> float:
+        # higher entropy and lower confidence increase remasking pressure.
+        confidence_term = 0.35 * max(0.0, 0.45 - mean_conf)
+        entropy_term = 0.20 * max(0.0, mean_entropy - 0.55)
+        late_step_relax = 0.12 * frac
+        threshold = self.config.revision_conf_base + confidence_term + entropy_term - late_step_relax
+        return float(min(0.85, max(0.10, threshold)))
 
     def _clean_text(self, text: str) -> str:
         text = text.replace(" ##", "")
@@ -155,44 +207,47 @@ class GuidedIterativeSemanticDiffusion:
         steps = max(1, self.config.diffusion_steps)
         frac = step_index / max(1, steps - 1)
         temp = self._anneal(self.config.temp_start, self.config.temp_end, frac, self.config.temp_gamma)
-        alpha = self._anneal(self.config.steering_alpha_start, self.config.steering_alpha_end, frac, 1.0)
+        alpha = self._linear_anneal(self.config.steering_alpha_start, self.config.steering_alpha_end, frac)
 
         mask_id = int(self.tokenizer.mask_token_id)
-        unit_E = self._ensure_unit_embeddings()
-        steering_scores = unit_E @ target_vec
+        steering_scores = self._ensure_unit_embeddings() @ target_vec
 
         with self.torch.no_grad():
             logits = self.masked_lm(input_ids=seq.unsqueeze(0)).logits[0]
 
-        candidates: List[Tuple[int, int, float]] = []
+        candidates: List[Tuple[int, int, float, float]] = []
         sampled_conf: Dict[int, float] = {}
+        sampled_entropy: List[float] = []
 
         for local_idx, pos in enumerate(output_positions):
             if not bool(revealed[local_idx]):
-                tok, conf = self._sample_position(logits[pos], token_counts, steering_scores, alpha, temp)
+                tok, conf, entropy_ratio = self._sample_position(logits[pos], token_counts, steering_scores, alpha, temp, frac)
                 seq[pos] = tok
-                candidates.append((local_idx, tok, conf))
+                candidates.append((local_idx, tok, conf, entropy_ratio))
                 sampled_conf[local_idx] = conf
+                sampled_entropy.append(entropy_ratio)
 
+        mean_entropy = float(sum(sampled_entropy) / len(sampled_entropy)) if sampled_entropy else 0.5
         masked_left = int((~revealed).sum().item())
-        ramp = 0.5 + 0.5 * frac
-        reveal_count = max(1, int(math.ceil(masked_left * self.config.reveal_fraction * ramp))) if masked_left > 0 else 0
+        reveal_count = self._compute_reveal_count(masked_left, frac, mean_entropy)
+
         candidates.sort(key=lambda x: x[2], reverse=True)
         chosen = candidates[:reveal_count]
-
-        for local_idx, tok, _ in chosen:
+        for local_idx, tok, _, _ in chosen:
             revealed[local_idx] = True
             token_counts[tok] = token_counts.get(tok, 0) + 1
 
-        conf_thr = self.config.revision_conf_threshold if revision_conf_threshold is None else revision_conf_threshold
         if step_index >= 1:
             open_revealed = [i for i in range(len(output_positions)) if bool(revealed[i])]
-            low_conf = sorted(
-                [(i, sampled_conf.get(i, 1.0)) for i in open_revealed], key=lambda x: x[1]
-            )
-            if low_conf:
+            mean_conf = float(sum(sampled_conf.values()) / len(sampled_conf)) if sampled_conf else 1.0
+            threshold = revision_conf_threshold
+            if threshold is None:
+                threshold = self._compute_revision_threshold(frac, mean_conf, mean_entropy)
+
+            if open_revealed:
                 max_by_fraction = max(1, int(math.ceil(len(open_revealed) * self.config.remask_fraction)))
-                remaskable = [x for x in low_conf if x[1] < conf_thr][:max_by_fraction]
+                low_conf = sorted([(i, sampled_conf.get(i, 1.0)) for i in open_revealed], key=lambda x: x[1])
+                remaskable = [x for x in low_conf if x[1] < threshold][:max_by_fraction]
                 for local_idx, _ in remaskable:
                     pos = output_positions[local_idx]
                     old = int(seq[pos].item())
@@ -205,13 +260,16 @@ class GuidedIterativeSemanticDiffusion:
 
     def generate(self, prompt: str, intent: str = "generate") -> Tuple[str, List[int]]:
         if getattr(self.encoder, "mode", "tfidf") != "bert":
-            fallback = f"I can help with {intent}: {prompt}. I will provide a concise, practical response grounded in the request context."
+            fallback = (
+                f"I can help with {intent}: {prompt}. "
+                "I will provide a concise, practical response grounded in the request context."
+            )
             words = fallback.split()
             return " ".join(words[: max(5, min(len(words), self.config.min_tokens))]), []
 
         with self.torch.no_grad():
             prefix = self._prefix_ids(prompt)
-            n_output = self._intent_budget(intent)
+            n_output = self._intent_budget(intent, prompt)
             cls_id = int(self.tokenizer.cls_token_id)
             sep_id = int(self.tokenizer.sep_token_id)
             mask_id = int(self.tokenizer.mask_token_id)
@@ -236,8 +294,7 @@ class GuidedIterativeSemanticDiffusion:
 
             token_ids = [int(seq[p].item()) for p in output_positions]
             text = self.tokenizer.decode(token_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True)
-            cleaned = self._clean_text(text)
-            return cleaned, token_ids
+            return self._clean_text(text), token_ids
 
 
 class GISDResponseGenerator:
@@ -252,24 +309,26 @@ class GISDResponseGenerator:
 
     def _tool_outputs_to_english(self, tool_outputs: Sequence[object] | None) -> str:
         if not tool_outputs:
-            return "no external tool findings were provided"
+            return "no external tool findings were available"
+
+        def flatten(value: object) -> str:
+            if isinstance(value, dict):
+                pairs = [f"{k} {flatten(v)}" for k, v in value.items()]
+                return "; ".join(pairs)
+            if isinstance(value, (list, tuple)):
+                return ", ".join(flatten(v) for v in value[:4])
+            return str(value)
+
         parts: List[str] = []
         for item in tool_outputs:
             if isinstance(item, dict):
                 tool = str(item.get("tool", "tool"))
-                detail_chunks = []
-                for k, v in item.items():
-                    if k == "tool":
-                        continue
-                    if isinstance(v, (list, tuple)):
-                        vtxt = ", ".join(str(x) for x in v[:3])
-                    else:
-                        vtxt = str(v)
-                    detail_chunks.append(f"{k} {vtxt}")
-                detail = "; ".join(detail_chunks) if detail_chunks else "with usable intermediate findings"
-                parts.append(f"{tool} reported {detail}")
+                payload = {k: v for k, v in item.items() if k != "tool"}
+                details = flatten(payload) if payload else "usable intermediate findings"
+                parts.append(f"{tool} reported {details}")
             else:
-                parts.append(str(item))
+                parts.append(flatten(item))
+
         text = "; ".join(parts)
         return re.sub(r"[{}\[\]\"]", "", text)
 
@@ -290,10 +349,11 @@ class GISDResponseGenerator:
 
         history_snippet = ""
         if history:
-            history_snippet = f" while keeping continuity with earlier notes about {history[-1][:80]}"
+            recent = [h.strip() for h in history if str(h).strip()][-2:]
+            history_snippet = f" while preserving continuity with {'; '.join(recent)}"
 
         tools_plain = self._tool_outputs_to_english(tool_outputs)
-        prefix = f"{intro}{history_snippet}, I found that {tools_plain}; regarding '{prompt}',"
+        prefix = f"{intro}{history_snippet}, I found that {tools_plain}; regarding {prompt},"
         return re.sub(r"\s+", " ", prefix).strip()
 
     def generate_response(
@@ -308,9 +368,9 @@ class GISDResponseGenerator:
         if self.gisd is None:
             return (
                 f"Given intent {intent} at confidence {confidence:.2f}, {prefix} "
-                f"I will provide a concise response focused on actionable details and semantic clarity."
+                "I will provide a concise response focused on actionable details and semantic clarity."
             )
-        text, _ = self.gisd.generate(prefix, intent=intent)
-        if not text.strip():
+        generated, _ = self.gisd.generate(prefix, intent=intent)
+        if not generated.strip():
             return f"For {intent}, {prompt}, I recommend a pragmatic answer with explicit assumptions and next steps."
-        return text
+        return generated

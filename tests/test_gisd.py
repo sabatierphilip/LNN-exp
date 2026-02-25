@@ -20,7 +20,8 @@ def encoder() -> SemanticEncoder:
 
 @pytest.fixture(scope="module")
 def gisd(encoder: SemanticEncoder) -> GuidedIterativeSemanticDiffusion:
-    return GuidedIterativeSemanticDiffusion(encoder, GISDConfig(diffusion_steps=6, min_tokens=18, max_tokens=48))
+    cfg = GISDConfig(diffusion_steps=6, min_tokens=18, max_tokens=48)
+    return GuidedIterativeSemanticDiffusion(encoder, cfg)
 
 
 def test_1_basic_generation(gisd: GuidedIterativeSemanticDiffusion):
@@ -49,7 +50,7 @@ def test_2_semantic_steering_moves_logits(gisd: GuidedIterativeSemanticDiffusion
     best_sem_idx = int(gisd.torch.argmax(steering_scores).item())
     best_sem = float(steering_scores[best_sem_idx].item())
     assert best_sem > 0.0
-    alpha = (float(raw_logits.max().item()) - float(raw_logits[best_sem_idx].item()) + 0.1) / max(best_sem, 1e-6)
+    alpha = (float(raw_logits.max().item()) - float(raw_logits[best_sem_idx].item()) + 0.15) / max(best_sem, 1e-6)
     steered_logits = raw_logits + alpha * steering_scores
 
     assert bool((steered_logits > raw_logits).any().item())
@@ -175,3 +176,16 @@ def test_10_sample_outputs_table(gisd: GuidedIterativeSemanticDiffusion):
             print(f"INTENT: {intent} | CONFIDENCE: {conf:.2f} | TOKENS: {len(ids)}")
             print(f"OUTPUT: {text}")
             print("---")
+
+
+def test_dynamic_thresholds_and_budgets(gisd: GuidedIterativeSemanticDiffusion):
+    short_prompt = "Summarize memory tradeoffs"
+    long_prompt = "Summarize memory tradeoffs across retrieval latency, write bandwidth, controller complexity, and sequence length scaling behavior"
+
+    short_budget = gisd._intent_budget("summarize", short_prompt)
+    long_budget = gisd._intent_budget("summarize", long_prompt)
+    assert long_budget >= short_budget
+
+    early_high_uncertainty = gisd._compute_revision_threshold(frac=0.1, mean_conf=0.2, mean_entropy=0.9)
+    late_low_uncertainty = gisd._compute_revision_threshold(frac=0.9, mean_conf=0.7, mean_entropy=0.3)
+    assert early_high_uncertainty > late_low_uncertainty
