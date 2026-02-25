@@ -139,9 +139,13 @@ class SemanticEncoder:
             self._F = F
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
             source_path = Path(cache_dir) / "bert-base-uncased"
-            source = str(source_path) if source_path.exists() else "bert-base-uncased"
-            self.tokenizer = AutoTokenizer.from_pretrained(source, cache_dir=cache_dir)
-            self.model = AutoModel.from_pretrained(source, cache_dir=cache_dir).to(self.device)
+            if not source_path.exists():
+                raise FileNotFoundError(
+                    f"Expected local BERT weights at {source_path}; refusing network download."
+                )
+            source = str(source_path)
+            self.tokenizer = AutoTokenizer.from_pretrained(source, local_files_only=True)
+            self.model = AutoModel.from_pretrained(source, local_files_only=True).to(self.device)
             self.model.eval()
             self.mode = "bert"
         except Exception:
@@ -622,136 +626,126 @@ def step_f1(pred: Sequence[str], gold: Sequence[str]) -> float:
 
 
 class BertSemanticResponseGenerator:
-    """BERT-powered semantic response generator using embeddings for context-aware generation.
-    
-    Uses BERT to:
-    1. Extract semantic keywords from the user prompt
-    2. Score response candidates based on semantic similarity
-    3. Generate contextually grounded, intent-aware responses
-    4. Ensure responses are semantically coherent with the original request
+    """Experimental self-referential autoregressive starter using BERT embeddings.
+
+    This module does freeform generation by iteratively selecting the next sentence
+    from a dynamic candidate lattice. Candidate ranking uses the same BERT encoder
+    as the router, so generation remains grounded in semantic similarity while also
+    referencing the model's own prior hypotheses and tool plans.
     """
-    
+
     def __init__(self, encoder: "SemanticEncoder") -> None:
         self.encoder = encoder
-        self.action_verbs = {
-            "search": ["find", "gather", "retrieve", "locate", "source", "discover"],
-            "summarize": ["condense", "compress", "distill", "extract", "synthesize", "reduce"],
-            "recall": ["remember", "retrieve", "recall", "verify", "confirm", "look up"],
-            "generate": ["compose", "draft", "write", "create", "formulate", "articulate"],
-            "plan": ["structure", "organize", "roadmap", "schedule", "sequence", "build"],
+        self.tool_step_explanations = {
+            "search": "query external evidence and rank reliable sources",
+            "rank_sources": "evaluate source quality before synthesis",
+            "summarize": "compress evidence into concise takeaways",
+            "recall": "recover relevant memory entries and prior choices",
+            "verify": "cross-check recalled details against constraints",
+            "generate": "write a user-facing response with grounded detail",
+            "plan": "sequence milestones with measurable checkpoints",
+            "decompose": "split the objective into bounded subtasks",
         }
-        
-        # Intent-specific response templates with semantic hooks
-        self.response_templates = {
-            "search": [
-                "I'll find and rank {keyword} sources, then summarize the evidence.",
-                "Let me locate relevant {keyword} references and synthesize key findings.",
-                "I'll gather {keyword} sources, evaluate them, and extract key points.",
-                "I'll systematically search for {keyword} materials and synthesize insights.",
-            ],
-            "summarize": [
-                "I'll condense the {keyword} material into concise, actionable bullets.",
-                "Let me extract and organize the core {keyword} concepts for clarity.",
-                "I'll distill the {keyword} content into its essential components.",
-                "I'll compress the {keyword} information while preserving key insights.",
-            ],
-            "recall": [
-                "I'll retrieve {keyword} from our prior decisions and verify alignment.",
-                "Let me recall our {keyword} discussions and confirm consistency.",
-                "I'll look up the {keyword} stored decisions and cross-check completeness.",
-                "I'll retrieve the {keyword} from memory and validate against current context.",
-            ],
-            "generate": [
-                "I'll compose a clear, {keyword}-focused response tailored to your needs.",
-                "Let me draft a {keyword}-aware answer that addresses your request directly.",
-                "I'll create a {keyword}-informed explanation with concrete details.",
-                "I'll articulate a {keyword}-centered answer grounded in our discussion.",
-            ],
-            "plan": [
-                "I'll structure a {keyword} roadmap with clear milestones and sequencing.",
-                "Let me build a {keyword}-informed action plan with measurable steps.",
-                "I'll organize a {keyword} strategy with ordered, achievable milestones.",
-                "I'll create a {keyword}-focused roadmap with explicit next actions.",
-            ],
+
+    def _extract_keywords(self, prompt: str, max_terms: int = 4) -> List[str]:
+        stop = {
+            "the", "and", "for", "with", "that", "this", "from", "into", "about", "what", "please",
+            "could", "would", "should", "also", "then", "than", "where", "when", "which", "while", "your",
+            "have", "been", "just", "make", "does", "work", "using",
         }
-    
-    def extract_semantic_keywords(self, prompt: str, top_k: int = 2) -> List[str]:
-        """Extract semantic keywords from prompt using entity-like tokens and domain terms."""
-        # Remove common stopwords and extract meaningful tokens
-        stopwords = {
-            "the", "a", "an", "and", "or", "is", "are", "to", "do", "did", "can", "will", 
-            "you", "i", "me", "this", "that", "what", "which", "how", "of", "for", "in",
-            "with", "on", "at", "by", "from", "as", "be", "have", "has", "had", "we", "our"
-        }
-        # Lowercase and split, preserve meaningful punctuation
-        tokens = prompt.lower().split()
-        tokens = [t.strip("?.,;:!") for t in tokens]
-        
-        # First pass: look for domain-specific terms and longer nouns
-        keywords = []
-        for token in tokens:
-            if (token not in stopwords and 
-                len(token) > 3 and 
-                (token.endswith(("s", "ing", "ed")) or 
-                 token in ["papers", "memory", "decision", "notes", "results", "coding", 
-                          "benchmark", "architecture", "stakeholder", "integration", "roadmap"])):
-                keywords.append(token)
-        
-        # Fallback: if no keywords found, look for any non-stopword
-        if not keywords:
-            keywords = [t for t in tokens if t not in stopwords and len(t) > 2]
-        
-        return keywords[:top_k] if keywords else ["request"]
-    
-    def generate(self, prompt: str, intent: str, confidence: float = 0.7) -> str:
-        """Generate a semantically-grounded response using BERT embeddings."""
-        # Extract semantic keywords
-        keywords = self.extract_semantic_keywords(prompt)
-        keyword_str = keywords[0] if keywords else "this"
-        
-        # Get response templates for this intent
-        templates = self.response_templates[intent]
-        
-        # Select template based on confidence (higher confidence → longer template)
-        if confidence > 0.8:
-            selected_template = templates[-1]  # Most detailed
-        elif confidence > 0.6:
-            selected_template = templates[len(templates) // 2]  # Mid-length
-        else:
-            selected_template = templates[0]  # Concise
-        
-        # Format template with extracted keyword, handling edge cases
-        try:
-            response_base = selected_template.format(keyword=keyword_str)
-        except (KeyError, IndexError):
-            response_base = selected_template  # Template has no placeholder
-        
-        # Add context and action indicator
-        tail = " Next, I can execute this right away if you want."
-        full_response = f"{response_base} Request accepted: \"{prompt}\".{tail}"
-        
-        return full_response
+        cleaned = [x.strip(".,!?;:\"'()[]{}").lower() for x in prompt.split()]
+        return [tok for tok in cleaned if tok and len(tok) > 3 and tok not in stop][:max_terms] or ["request"]
+
+    def _score_candidates(self, query: str, candidates: Sequence[str]) -> List[float]:
+        if self.encoder.mode == "tfidf":
+            from sklearn.feature_extraction.text import TfidfVectorizer
+            from sklearn.metrics.pairwise import cosine_similarity
+
+            vec = TfidfVectorizer(ngram_range=(1, 2), lowercase=True)
+            matrix = vec.fit_transform([query, *candidates])
+            return cosine_similarity(matrix[0:1], matrix[1:]).ravel().tolist()
+        matrix = self.encoder._embed([query, *candidates])
+        sims = (matrix[0:1] @ matrix[1:].T).squeeze(0)
+        return [float(x) for x in sims.tolist()]
+
+    def generate(
+        self,
+        prompt: str,
+        intent: str,
+        confidence: float = 0.7,
+        trace: Dict[str, object] | None = None,
+        symbolic_plan: Sequence[str] | None = None,
+        state: ChatSessionState | None = None,
+    ) -> str:
+        """Generate a freeform response with iterative self-referential continuation."""
+        plan = list(symbolic_plan or SYMBOLIC_PLANS[intent])
+        keywords = self._extract_keywords(prompt)
+        focus = keywords[0]
+        fused = (trace or {}).get("fused_scores", {}) if trace else {}
+        prior = float(fused.get(intent, 0.0)) if isinstance(fused, dict) else 0.0
+        world_slots = [] if state is None else state.latent_slots.get(intent, [])[:3]
+        memory_summary = ", ".join(world_slots) if world_slots else "no prior slots yet"
+        tool_text = "; ".join(
+            f"{idx + 1}) {step}: {self.tool_step_explanations.get(step, 'execute step')}"
+            for idx, step in enumerate(plan)
+        )
+
+        seed = (
+            f"I infer intent={intent} with confidence={confidence:.2f}, world_prior={prior:.2f}. "
+            f"Focus terms: {', '.join(keywords)}."
+        )
+
+        body_sentences: List[str] = [seed]
+        steps = max(3, min(6, 2 + int(round(confidence * 4))))
+        for idx in range(steps):
+            step = plan[idx % len(plan)]
+            candidates = [
+                f"Self-reference step {idx + 1}: I will use {step} to advance {focus} while preserving continuity with memory slots ({memory_summary}).",
+                f"Autoregressive expansion {idx + 1}: the next best action is {step}, because it aligns with intent cues in your prompt and keeps tools synchronized.",
+                f"At iteration {idx + 1}, I update my latent world model for {focus}, run {step}, and evaluate whether confidence should increase.",
+                f"Tool-integration node {idx + 1}: execute {step}, emit trace metadata, and feed outputs back into the next generation pass.",
+            ]
+            query = " ".join([prompt, " ".join(body_sentences[-2:]), f"next_step={step}"])
+            scores = self._score_candidates(query, candidates)
+            choice = candidates[max(range(len(scores)), key=lambda i: scores[i])]
+            body_sentences.append(choice)
+
+        ending = (
+            f"Integrated tool route: {tool_text}. "
+            f"Request accepted: \"{prompt}\". "
+            "If you want, I can now execute this plan in strict tool-by-tool mode."
+        )
+        return " ".join(body_sentences + [ending])
 
 
-def generate_autoregressive_reply(prompt: str, intent: str, encoder: "SemanticEncoder | None" = None, confidence: float = 0.7) -> str:
-    """BERT-powered semantic response generator.
-    
-    Uses the encoder to extract semantic features and generate contextually-grounded responses.
-    Falls back to semantic templates if encoder is unavailable.
-    """
+def generate_autoregressive_reply(
+    prompt: str,
+    intent: str,
+    encoder: "SemanticEncoder | None" = None,
+    confidence: float = 0.7,
+    trace: Dict[str, object] | None = None,
+    symbolic_plan: Sequence[str] | None = None,
+    state: ChatSessionState | None = None,
+) -> str:
+    """Generate a freeform, self-referential reply grounded in BERT embeddings."""
     if encoder is not None:
         generator = BertSemanticResponseGenerator(encoder)
-        return generator.generate(prompt, intent, confidence=confidence)
-    
-    # Fallback to semantic templates (no encoder available)
-    fallback_templates = {
-        "search": "I'll find and rank relevant sources, then summarize key evidence.",
-        "summarize": "I'll condense the material into concise, essential points.",
-        "recall": "I'll retrieve prior decisions and verify alignment with current context.",
-        "generate": "I'll compose a clear, contextually-grounded response for you.",
-        "plan": "I'll structure a roadmap with clear milestones and next actions.",
-    }
-    return f"{fallback_templates[intent]} Request: {prompt}. Next, I can execute this right away if you want."
+        return generator.generate(
+            prompt,
+            intent,
+            confidence=confidence,
+            trace=trace,
+            symbolic_plan=symbolic_plan,
+            state=state,
+        )
+
+    fallback = [
+        f"I infer intent={intent} and will run a self-referential loop over your request.",
+        "First I route tools, then I regenerate using prior outputs as context.",
+        f"Request accepted: \"{prompt}\".",
+        "I can execute the full plan step-by-step if you want.",
+    ]
+    return " ".join(fallback)
 
 
 
@@ -805,7 +799,7 @@ class EmbeddingDemaskAutoregressor:
         total = sum(state.intent_transitions.get(prev, {}).values())
         return 0.5 if total == 0 else 0.4 + (empirical / total)
 
-    def generate(self, prompt: str, intent: str, state: ChatSessionState, confidence: float) -> str:
+    def generate(self, prompt: str, intent: str, state: ChatSessionState, confidence: float, trace: Dict[str, object] | None = None) -> str:
         slots = state.latent_slots.get(intent, [])
         current_slots = self._extract_slots(prompt)
         focus = current_slots[0] if current_slots else (slots[0] if slots else "task")
@@ -838,7 +832,16 @@ class EmbeddingDemaskAutoregressor:
 
         weighted = [s + 0.1 * prior for s in sims]
         best_idx = max(range(len(weighted)), key=lambda i: weighted[i])
-        return candidates[best_idx] + " Next, I can execute tool-level steps now if you want."
+        seed = candidates[best_idx] + " Next, I can execute tool-level steps now if you want."
+        return generate_autoregressive_reply(
+            prompt,
+            intent,
+            encoder=self.encoder,
+            confidence=max(confidence, min(0.95, 0.55 + 0.4 * prior)),
+            trace=trace,
+            symbolic_plan=SYMBOLIC_PLANS[intent],
+            state=state,
+        ) + " " + seed
 
 
 class AgenticChatOrchestrator:
@@ -850,7 +853,7 @@ class AgenticChatOrchestrator:
 
     def run_turn(self, prompt: str, state: ChatSessionState) -> ConversationTurn:
         pred_intent, confidence, trace = self.router.predict_with_trace(prompt, gold_intent=None)
-        response = self.autoreg.generate(prompt, pred_intent, state=state, confidence=confidence)
+        response = self.autoreg.generate(prompt, pred_intent, state=state, confidence=confidence, trace=trace)
         turn = ConversationTurn(
             user_prompt=prompt,
             predicted_intent=pred_intent,
@@ -883,6 +886,8 @@ def run_freeform_turn(prompt: str, router: "NeuroSymbolicRouter") -> Conversatio
         pred_intent,
         encoder=router.encoder,
         confidence=confidence,
+        trace=trace,
+        symbolic_plan=SYMBOLIC_PLANS[pred_intent],
     )
     world_model_prior = float(trace.get("fused_scores", {}).get(pred_intent, 0.0))
     return ConversationTurn(

@@ -24,6 +24,17 @@ python src/hybrid_agent.py --dataset data/intent_benchmark.json --out results/ev
 python src/hybrid_agent.py --cache-dir models --chat-prompt "Please reason over our symbolic memory and build an integration roadmap."
 ```
 
+### Notes on local BERT weights
+
+- The runtime now **requires local BERT files** under `models/bert-base-uncased` and will not download from the network.
+- If local files are unavailable, the system safely falls back to TF-IDF mode for routing/generation scoring.
+
+### Experimental self-referential freeform generation
+
+- Freeform chat no longer emits only intent-routing templates.
+- The generator now runs an iterative self-referential autoregressive loop, grounded in BERT semantic scoring when available.
+- It integrates symbolic tool steps (`SYMBOLIC_PLANS`) directly into generated output for auditable tool-aware responses.
+
 
 ## Reproducible multi-turn chat continuation command
 
