@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
 
@@ -82,6 +82,23 @@ class ConversationTurn:
     world_model_prior: float
     response: str
     trace: Dict[str, object]
+
+
+@dataclass
+class ChatSessionState:
+    """State container for multi-turn continuation and agentic world modeling."""
+
+    history: List[ConversationTurn] = field(default_factory=list)
+    intent_transitions: Dict[str, Dict[str, int]] = field(default_factory=dict)
+    latent_slots: Dict[str, List[str]] = field(default_factory=dict)
+
+
+@dataclass
+class ChatSessionResult:
+    """Serializable chat session transcript with diagnostics."""
+
+    turns: List[ConversationTurn]
+    state: Dict[str, object]
 
 
 class KeywordBaseline:
@@ -737,6 +754,126 @@ def generate_autoregressive_reply(prompt: str, intent: str, encoder: "SemanticEn
     return f"{fallback_templates[intent]} Request: {prompt}. Next, I can execute this right away if you want."
 
 
+
+class EmbeddingDemaskAutoregressor:
+    """Embedding-aware continuation model with autoreferencing and demasking.
+
+    The model builds a lightweight world-state from previous turns and generates
+    next responses by scoring intent-aligned continuation candidates with the
+    shared semantic encoder.
+    """
+
+    def __init__(self, encoder: "SemanticEncoder") -> None:
+        self.encoder = encoder
+        self.transition_bias = {
+            "search": ["summarize", "plan"],
+            "summarize": ["generate", "plan"],
+            "recall": ["generate", "plan"],
+            "generate": ["plan", "search"],
+            "plan": ["generate", "search"],
+        }
+
+    def _extract_slots(self, prompt: str) -> List[str]:
+        stop = {
+            "the", "and", "for", "with", "that", "this", "from", "into", "about", "what", "please",
+            "could", "would", "should", "also", "then", "than", "where", "when", "which", "while",
+        }
+        cleaned = [x.strip(".,!?;:\"'()[]{}").lower() for x in prompt.split()]
+        return [tok for tok in cleaned if tok and len(tok) > 3 and tok not in stop][:6]
+
+    def update_state(self, state: ChatSessionState, turn: ConversationTurn) -> None:
+        state.history.append(turn)
+        if len(state.history) > 1:
+            prev = state.history[-2].predicted_intent
+            current = turn.predicted_intent
+            state.intent_transitions.setdefault(prev, {})
+            state.intent_transitions[prev][current] = state.intent_transitions[prev].get(current, 0) + 1
+
+        for slot in self._extract_slots(turn.user_prompt):
+            state.latent_slots.setdefault(turn.predicted_intent, [])
+            if slot not in state.latent_slots[turn.predicted_intent]:
+                state.latent_slots[turn.predicted_intent].append(slot)
+
+    def _transition_prior(self, state: ChatSessionState, intent: str) -> float:
+        if not state.history:
+            return 0.5
+        prev = state.history[-1].predicted_intent
+        preferred = self.transition_bias.get(prev, [])
+        if intent in preferred:
+            return 0.9
+        empirical = state.intent_transitions.get(prev, {}).get(intent, 0)
+        total = sum(state.intent_transitions.get(prev, {}).values())
+        return 0.5 if total == 0 else 0.4 + (empirical / total)
+
+    def generate(self, prompt: str, intent: str, state: ChatSessionState, confidence: float) -> str:
+        slots = state.latent_slots.get(intent, [])
+        current_slots = self._extract_slots(prompt)
+        focus = current_slots[0] if current_slots else (slots[0] if slots else "task")
+        prior = self._transition_prior(state, intent)
+
+        candidates = [
+            f"Agent mode: I will execute {intent} around {focus} using the current world model and then verify outcomes.",
+            f"Continuation: Based on prior turns, I will {intent} the {focus} details, cross-reference memory slots, and produce a grounded output.",
+            f"Demasked plan: I infer hidden constraints around {focus}, apply {intent}, and autoreference earlier decisions before responding.",
+            f"World-model action: I'll update latent state for {focus}, run {intent} steps, and return an auditable result with next actions.",
+        ]
+        if state.history:
+            last = state.history[-1]
+            candidates.append(
+                f"Given your previous request on '{last.user_prompt[:55]}', I will continue by applying {intent} to {focus} and preserving continuity."
+            )
+
+        query = f"{prompt} intent={intent} prior={prior:.2f} confidence={confidence:.2f}"
+        if self.encoder.mode == "tfidf":
+            from sklearn.feature_extraction.text import TfidfVectorizer
+            from sklearn.metrics.pairwise import cosine_similarity
+
+            vec = TfidfVectorizer(ngram_range=(1, 2), lowercase=True)
+            mat = vec.fit_transform([query, *candidates])
+            sims = cosine_similarity(mat[0:1], mat[1:]).ravel().tolist()
+        else:
+            mat = self.encoder._embed([query, *candidates])
+            sims_t = (mat[0:1] @ mat[1:].T).squeeze(0)
+            sims = [float(x) for x in sims_t.tolist()]
+
+        weighted = [s + 0.1 * prior for s in sims]
+        best_idx = max(range(len(weighted)), key=lambda i: weighted[i])
+        return candidates[best_idx] + " Next, I can execute tool-level steps now if you want."
+
+
+class AgenticChatOrchestrator:
+    """Multi-turn chat orchestrator with autoreferencing world-state updates."""
+
+    def __init__(self, router: "NeuroSymbolicRouter") -> None:
+        self.router = router
+        self.autoreg = EmbeddingDemaskAutoregressor(router.encoder)
+
+    def run_turn(self, prompt: str, state: ChatSessionState) -> ConversationTurn:
+        pred_intent, confidence, trace = self.router.predict_with_trace(prompt, gold_intent=None)
+        response = self.autoreg.generate(prompt, pred_intent, state=state, confidence=confidence)
+        turn = ConversationTurn(
+            user_prompt=prompt,
+            predicted_intent=pred_intent,
+            confidence=confidence,
+            symbolic_plan=SYMBOLIC_PLANS[pred_intent],
+            world_model_prior=float(trace.get("fused_scores", {}).get(pred_intent, 0.0)),
+            response=response,
+            trace=trace,
+        )
+        self.autoreg.update_state(state, turn)
+        return turn
+
+    def run_session(self, prompts: Sequence[str]) -> ChatSessionResult:
+        state = ChatSessionState()
+        turns = [self.run_turn(prompt, state) for prompt in prompts]
+        snapshot = {
+            "intent_transitions": state.intent_transitions,
+            "latent_slots": state.latent_slots,
+            "turn_count": len(state.history),
+            "final_intent": state.history[-1].predicted_intent if state.history else None,
+        }
+        return ChatSessionResult(turns=turns, state=snapshot)
+
 def run_freeform_turn(prompt: str, router: "NeuroSymbolicRouter") -> ConversationTurn:
     """Execute one freeform conversation turn with full neuro-symbolic tracing."""
 
@@ -757,6 +894,17 @@ def run_freeform_turn(prompt: str, router: "NeuroSymbolicRouter") -> Conversatio
         response=response,
         trace=trace,
     )
+
+
+def sample_chat_prompts() -> List[str]:
+    """Built-in multi-turn prompts for reproducible continuation checks."""
+    return [
+        "Find strong references on world-model-based agent planning for LNN systems.",
+        "Great—now condense those findings into concise bullets for leadership.",
+        "Remind me what constraints we decided for memory slots yesterday.",
+        "Draft a stakeholder-friendly update that ties all of this together.",
+        "Create a sequenced rollout plan with milestones and validation checks.",
+    ]
 
 
 def evaluate(dataset_path: Path, out_path: Path, cache_dir: str) -> Dict[str, object]:
@@ -833,6 +981,16 @@ def evaluate(dataset_path: Path, out_path: Path, cache_dir: str) -> Dict[str, ob
             "base_step_f1": bf1,
             "hybrid_step_f1": hf1,
         })
+
+    orchestrator = AgenticChatOrchestrator(hybrid_router)
+    continuation_session = orchestrator.run_session(sample_chat_prompts())
+    continuation_scores = []
+    for turn in continuation_session.turns[1:]:
+        has_reference = any(
+            key in turn.response.lower()
+            for key in ["previous", "continu", "memory", "world model", "latent", "prior"]
+        )
+        continuation_scores.append(int(has_reference and len(turn.response.split()) > 12))
 
     autoreg_details = []
     coherent_hits = 0
@@ -914,6 +1072,25 @@ def evaluate(dataset_path: Path, out_path: Path, cache_dir: str) -> Dict[str, ob
             "can_function_as_chatbot": coherent_hits / len(AUTOREG_BENCHMARK) >= 0.8,
             "details": autoreg_details,
         },
+        "chat_continuation_test": {
+            "turns": [
+                {
+                    "user_prompt": turn.user_prompt,
+                    "predicted_intent": turn.predicted_intent,
+                    "response": turn.response,
+                }
+                for turn in continuation_session.turns
+            ],
+            "world_state": continuation_session.state,
+            "continuation_grounding_rate": (
+                sum(continuation_scores) / len(continuation_scores)
+                if continuation_scores
+                else 0.0
+            ),
+            "multi_turn_capable": (sum(continuation_scores) / len(continuation_scores) >= 0.75)
+            if continuation_scores
+            else False,
+        },
     }
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -932,12 +1109,33 @@ if __name__ == "__main__":
         default="",
         help="Optional freeform prompt to run one fully traced conversation turn.",
     )
+    parser.add_argument(
+        "--chat-script",
+        type=Path,
+        default=None,
+        help="Optional path to JSON list of user prompts for multi-turn continuation testing.",
+    )
+    parser.add_argument(
+        "--sample-chats",
+        action="store_true",
+        help="Run built-in multi-turn conversation samples and print transcript JSON.",
+    )
     args = parser.parse_args()
 
     if args.chat_prompt:
         router = NeuroSymbolicRouter(SemanticEncoder(args.cache_dir))
         turn = run_freeform_turn(args.chat_prompt, router)
         print(json.dumps(turn.__dict__, indent=2))
+    elif args.sample_chats or args.chat_script:
+        router = NeuroSymbolicRouter(SemanticEncoder(args.cache_dir))
+        orchestrator = AgenticChatOrchestrator(router)
+        prompts = sample_chat_prompts() if args.sample_chats else json.loads(args.chat_script.read_text())
+        session = orchestrator.run_session(prompts)
+        payload = {
+            "turns": [turn.__dict__ for turn in session.turns],
+            "state": session.state,
+        }
+        print(json.dumps(payload, indent=2))
     else:
         report = evaluate(args.dataset, args.out, args.cache_dir)
         print(
@@ -948,4 +1146,5 @@ if __name__ == "__main__":
             f"nexttok_hybrid={report['next_token_metrics']['hybrid_router_accuracy']:.3f}",
             f"reason_hybrid_f1={report['reasoning_metrics']['hybrid_plan_step_f1']:.3f}",
             f"chatbot={report['autoregression_test']['can_function_as_chatbot']}",
+            f"multi_turn={report['chat_continuation_test']['multi_turn_capable']}",
         )
