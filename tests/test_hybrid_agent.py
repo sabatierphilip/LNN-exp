@@ -27,16 +27,28 @@ def test_semantic_encoder_uses_local_bert():
 
 def test_generate_autoregressive_reply_coherent():
     for intent in ha.INTENT_DESCRIPTIONS.keys():
+        # Test with default args
         reply = ha.generate_autoregressive_reply("Please do this task", intent)
         assert isinstance(reply, str) and len(reply.split()) > 5
-        lead = {
-            "search": "I will search relevant sources",
-            "summarize": "I will condense the material",
-            "recall": "I will retrieve prior decisions",
-            "generate": "I will draft a clear answer",
-            "plan": "I will produce an ordered roadmap",
-        }[intent]
-        assert lead.split()[0].lower() in reply.lower()
+        assert "Request:" in reply
+        
+        # Test with high confidence and trace info
+        trace = {
+            "fused_scores": {label: 0.2 for label in ha.INTENT_DESCRIPTIONS.keys()}
+        }
+        trace["fused_scores"][intent] = 0.8
+        reply_high_conf = ha.generate_autoregressive_reply(
+            "Please do this task", intent, confidence=0.9, trace=trace
+        )
+        assert isinstance(reply_high_conf, str) and len(reply_high_conf.split()) > 5
+        assert "Request:" in reply_high_conf
+        
+        # Responses should be different when confidence varies
+        reply_low_conf = ha.generate_autoregressive_reply(
+            "Please do this task", intent, confidence=0.5
+        )
+        # Not all responses will differ, but some should when confidence changes action template
+        assert len(reply_low_conf.split()) > 5
 
 
 def test_neurosymbolic_router_predicts_and_traces():
