@@ -6,6 +6,769 @@
   "base_bert_style_accuracy": 0.5333333333333333,
   "neuro_symbolic_accuracy": 1.0,
   "improvement_vs_base_bert": 0.4666666666666667,
+  "learnable_gating": {
+    "feature_names": [
+      "bias",
+      "search_density",
+      "summarize_density",
+      "recall_density",
+      "generate_density",
+      "plan_density",
+      "token_length",
+      "question_flag",
+      "imperative_flag"
+    ],
+    "module_names": [
+      "semantic",
+      "memory",
+      "cognitive",
+      "predictive",
+      "world"
+    ],
+    "final_weights": {
+      "semantic": [
+        0.55,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "memory": [
+        0.2,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "cognitive": [
+        0.1,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "predictive": [
+        0.1,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "world": [
+        0.05,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "trace": [
+      {
+        "text": "Look up the latest papers on neuro-symbolic reasoning and give me key takeaways.",
+        "gold_intent": "search",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0769,
+          "summarize_density": 0.0,
+          "recall_density": 0.0,
+          "generate_density": 0.0,
+          "plan_density": 0.0,
+          "token_length": 0.4333,
+          "question_flag": 0.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2788,
+          "memory": 0.1965,
+          "cognitive": 0.1778,
+          "predictive": 0.1778,
+          "world": 0.1691
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2791,
+          "memory": 0.194,
+          "cognitive": 0.1809,
+          "predictive": 0.176,
+          "world": 0.1701
+        },
+        "module_trust": {
+          "semantic": 1.0256,
+          "memory": 1.0118,
+          "cognitive": 1.0427,
+          "predictive": 1.0142,
+          "world": 1.0304
+        },
+        "fused_scores": {
+          "search": 0.6267,
+          "summarize": 0.2786,
+          "recall": 0.1494,
+          "generate": 0.1199,
+          "plan": 0.1599
+        },
+        "predicted_intent": "search",
+        "confidence": 0.99
+      },
+      {
+        "text": "Summarize this architecture proposal into three bullet points.",
+        "gold_intent": "summarize",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.125,
+          "recall_density": 0.0,
+          "generate_density": 0.0,
+          "plan_density": 0.0,
+          "token_length": 0.2667,
+          "question_flag": 0.0,
+          "imperative_flag": 1.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2788,
+          "memory": 0.1965,
+          "cognitive": 0.1778,
+          "predictive": 0.1778,
+          "world": 0.1691
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2791,
+          "memory": 0.1912,
+          "cognitive": 0.1846,
+          "predictive": 0.1734,
+          "world": 0.1718
+        },
+        "module_trust": {
+          "semantic": 1.0409,
+          "memory": 1.0118,
+          "cognitive": 1.0797,
+          "predictive": 1.0142,
+          "world": 1.0566
+        },
+        "fused_scores": {
+          "search": 0.1708,
+          "summarize": 0.3884,
+          "recall": 0.1289,
+          "generate": 0.1289,
+          "plan": 0.1718
+        },
+        "predicted_intent": "summarize",
+        "confidence": 0.8884
+      },
+      {
+        "text": "What did we decide yesterday about external memory size?",
+        "gold_intent": "recall",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.0,
+          "recall_density": 0.1111,
+          "generate_density": 0.0,
+          "plan_density": 0.0,
+          "token_length": 0.3,
+          "question_flag": 1.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2788,
+          "memory": 0.1965,
+          "cognitive": 0.1778,
+          "predictive": 0.1778,
+          "world": 0.1691
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2855,
+          "memory": 0.1886,
+          "cognitive": 0.1857,
+          "predictive": 0.1695,
+          "world": 0.1707
+        },
+        "module_trust": {
+          "semantic": 1.1056,
+          "memory": 1.0366,
+          "cognitive": 1.1277,
+          "predictive": 1.0292,
+          "world": 1.0901
+        },
+        "fused_scores": {
+          "search": 0.1921,
+          "summarize": 0.1178,
+          "recall": 0.8989,
+          "generate": 0.1178,
+          "plan": 0.1571
+        },
+        "predicted_intent": "recall",
+        "confidence": 0.99
+      },
+      {
+        "text": "Draft a concise response explaining why MANN helps with long context.",
+        "gold_intent": "generate",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.0909,
+          "recall_density": 0.0,
+          "generate_density": 0.1818,
+          "plan_density": 0.0,
+          "token_length": 0.3667,
+          "question_flag": 0.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2788,
+          "memory": 0.1965,
+          "cognitive": 0.1778,
+          "predictive": 0.1778,
+          "world": 0.1691
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.285,
+          "memory": 0.1865,
+          "cognitive": 0.1888,
+          "predictive": 0.1679,
+          "world": 0.1717
+        },
+        "module_trust": {
+          "semantic": 1.1286,
+          "memory": 1.048,
+          "cognitive": 1.1726,
+          "predictive": 1.0429,
+          "world": 1.1211
+        },
+        "fused_scores": {
+          "search": 0.1223,
+          "summarize": 0.2142,
+          "recall": 0.1223,
+          "generate": 0.577,
+          "plan": 0.1923
+        },
+        "predicted_intent": "generate",
+        "confidence": 0.99
+      },
+      {
+        "text": "Create a step-by-step roadmap to train a compact world model chatbot.",
+        "gold_intent": "plan",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.0,
+          "recall_density": 0.0,
+          "generate_density": 0.0,
+          "plan_density": 0.0909,
+          "token_length": 0.3667,
+          "question_flag": 0.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2788,
+          "memory": 0.1965,
+          "cognitive": 0.1778,
+          "predictive": 0.1778,
+          "world": 0.1691
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2911,
+          "memory": 0.1826,
+          "cognitive": 0.1896,
+          "predictive": 0.1647,
+          "world": 0.1721
+        },
+        "module_trust": {
+          "semantic": 1.1889,
+          "memory": 1.0583,
+          "cognitive": 1.2143,
+          "predictive": 1.0553,
+          "world": 1.159
+        },
+        "fused_scores": {
+          "search": 0.1291,
+          "summarize": 0.1291,
+          "recall": 0.1291,
+          "generate": 0.1291,
+          "plan": 0.7408
+        },
+        "predicted_intent": "plan",
+        "confidence": 0.99
+      },
+      {
+        "text": "Find benchmark results for Dreamer-v3 in dialogue settings.",
+        "gold_intent": "search",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.25,
+          "summarize_density": 0.0,
+          "recall_density": 0.0,
+          "generate_density": 0.0,
+          "plan_density": 0.0,
+          "token_length": 0.2667,
+          "question_flag": 0.0,
+          "imperative_flag": 1.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2788,
+          "memory": 0.1965,
+          "cognitive": 0.1778,
+          "predictive": 0.1778,
+          "world": 0.1691
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2904,
+          "memory": 0.1819,
+          "cognitive": 0.1924,
+          "predictive": 0.1626,
+          "world": 0.1726
+        },
+        "module_trust": {
+          "semantic": 1.2184,
+          "memory": 1.0833,
+          "cognitive": 1.2662,
+          "predictive": 1.0703,
+          "world": 1.1943
+        },
+        "fused_scores": {
+          "search": 0.6896,
+          "summarize": 0.1217,
+          "recall": 0.1217,
+          "generate": 0.1217,
+          "plan": 0.1623
+        },
+        "predicted_intent": "search",
+        "confidence": 0.99
+      },
+      {
+        "text": "Condense the meeting notes into one paragraph for the team.",
+        "gold_intent": "summarize",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.1,
+          "recall_density": 0.0,
+          "generate_density": 0.0,
+          "plan_density": 0.0,
+          "token_length": 0.3333,
+          "question_flag": 0.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2788,
+          "memory": 0.1965,
+          "cognitive": 0.1778,
+          "predictive": 0.1778,
+          "world": 0.1691
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2922,
+          "memory": 0.18,
+          "cognitive": 0.1952,
+          "predictive": 0.1593,
+          "world": 0.1734
+        },
+        "module_trust": {
+          "semantic": 1.2517,
+          "memory": 1.0939,
+          "cognitive": 1.3112,
+          "predictive": 1.0703,
+          "world": 1.2245
+        },
+        "fused_scores": {
+          "search": 0.13,
+          "summarize": 0.5135,
+          "recall": 0.1526,
+          "generate": 0.13,
+          "plan": 0.1734
+        },
+        "predicted_intent": "summarize",
+        "confidence": 0.99
+      },
+      {
+        "text": "Remind me which tokenizer we picked for the BERT baseline.",
+        "gold_intent": "recall",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.0,
+          "recall_density": 0.1,
+          "generate_density": 0.0,
+          "plan_density": 0.0,
+          "token_length": 0.3333,
+          "question_flag": 0.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2788,
+          "memory": 0.1965,
+          "cognitive": 0.1778,
+          "predictive": 0.1778,
+          "world": 0.1691
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.294,
+          "memory": 0.1767,
+          "cognitive": 0.1984,
+          "predictive": 0.1564,
+          "world": 0.1745
+        },
+        "module_trust": {
+          "semantic": 1.2829,
+          "memory": 1.0939,
+          "cognitive": 1.3578,
+          "predictive": 1.0703,
+          "world": 1.2556
+        },
+        "fused_scores": {
+          "search": 0.1309,
+          "summarize": 0.1909,
+          "recall": 0.4608,
+          "generate": 0.1309,
+          "plan": 0.1745
+        },
+        "predicted_intent": "recall",
+        "confidence": 0.9608
+      },
+      {
+        "text": "Write an answer comparing ACT-R and SOAR for our use case.",
+        "gold_intent": "generate",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.0,
+          "recall_density": 0.0,
+          "generate_density": 0.1818,
+          "plan_density": 0.0,
+          "token_length": 0.3667,
+          "question_flag": 0.0,
+          "imperative_flag": 1.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2788,
+          "memory": 0.1965,
+          "cognitive": 0.1778,
+          "predictive": 0.1778,
+          "world": 0.1691
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2933,
+          "memory": 0.1748,
+          "cognitive": 0.2014,
+          "predictive": 0.1551,
+          "world": 0.1754
+        },
+        "module_trust": {
+          "semantic": 1.3061,
+          "memory": 1.1047,
+          "cognitive": 1.4061,
+          "predictive": 1.083,
+          "world": 1.2875
+        },
+        "fused_scores": {
+          "search": 0.1315,
+          "summarize": 0.1315,
+          "recall": 0.1315,
+          "generate": 0.5235,
+          "plan": 0.213
+        },
+        "predicted_intent": "generate",
+        "confidence": 0.99
+      },
+      {
+        "text": "Plan the experiment matrix for ablations on memory slots and depth.",
+        "gold_intent": "plan",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.0,
+          "recall_density": 0.0,
+          "generate_density": 0.0,
+          "plan_density": 0.0909,
+          "token_length": 0.3667,
+          "question_flag": 0.0,
+          "imperative_flag": 1.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2788,
+          "memory": 0.1965,
+          "cognitive": 0.1778,
+          "predictive": 0.1778,
+          "world": 0.1691
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2928,
+          "memory": 0.1718,
+          "cognitive": 0.2049,
+          "predictive": 0.1524,
+          "world": 0.1781
+        },
+        "module_trust": {
+          "semantic": 1.3269,
+          "memory": 1.1047,
+          "cognitive": 1.4561,
+          "predictive": 1.083,
+          "world": 1.331
+        },
+        "fused_scores": {
+          "search": 0.1336,
+          "summarize": 0.2224,
+          "recall": 0.2588,
+          "generate": 0.1791,
+          "plan": 0.4665
+        },
+        "predicted_intent": "plan",
+        "confidence": 0.9665
+      },
+      {
+        "text": "Can you gather sources about predictive coding networks?",
+        "gold_intent": "search",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.125,
+          "summarize_density": 0.0,
+          "recall_density": 0.0,
+          "generate_density": 0.0,
+          "plan_density": 0.0,
+          "token_length": 0.2667,
+          "question_flag": 1.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2788,
+          "memory": 0.1965,
+          "cognitive": 0.1778,
+          "predictive": 0.1778,
+          "world": 0.1691
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2942,
+          "memory": 0.1696,
+          "cognitive": 0.2084,
+          "predictive": 0.1487,
+          "world": 0.1791
+        },
+        "module_trust": {
+          "semantic": 1.3664,
+          "memory": 1.1177,
+          "cognitive": 1.5182,
+          "predictive": 1.083,
+          "world": 1.3715
+        },
+        "fused_scores": {
+          "search": 0.6192,
+          "summarize": 0.1263,
+          "recall": 0.1263,
+          "generate": 0.1263,
+          "plan": 0.1684
+        },
+        "predicted_intent": "search",
+        "confidence": 0.99
+      },
+      {
+        "text": "Give me the short version of this long training report.",
+        "gold_intent": "summarize",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.1,
+          "recall_density": 0.0,
+          "generate_density": 0.0,
+          "plan_density": 0.0,
+          "token_length": 0.3333,
+          "question_flag": 0.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2788,
+          "memory": 0.1965,
+          "cognitive": 0.1778,
+          "predictive": 0.1778,
+          "world": 0.1691
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2943,
+          "memory": 0.1676,
+          "cognitive": 0.2112,
+          "predictive": 0.1472,
+          "world": 0.1797
+        },
+        "module_trust": {
+          "semantic": 1.3969,
+          "memory": 1.1287,
+          "cognitive": 1.5722,
+          "predictive": 1.0958,
+          "world": 1.4063
+        },
+        "fused_scores": {
+          "search": 0.1348,
+          "summarize": 0.5547,
+          "recall": 0.2225,
+          "generate": 0.1348,
+          "plan": 0.1797
+        },
+        "predicted_intent": "summarize",
+        "confidence": 0.99
+      },
+      {
+        "text": "Which loss function did we use in run_17?",
+        "gold_intent": "recall",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.0,
+          "recall_density": 0.0,
+          "generate_density": 0.0,
+          "plan_density": 0.0,
+          "token_length": 0.2667,
+          "question_flag": 1.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2788,
+          "memory": 0.1965,
+          "cognitive": 0.1778,
+          "predictive": 0.1778,
+          "world": 0.1691
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2989,
+          "memory": 0.1658,
+          "cognitive": 0.2106,
+          "predictive": 0.1442,
+          "world": 0.1805
+        },
+        "module_trust": {
+          "semantic": 1.4479,
+          "memory": 1.1398,
+          "cognitive": 1.6,
+          "predictive": 1.0958,
+          "world": 1.442
+        },
+        "fused_scores": {
+          "search": 0.1354,
+          "summarize": 0.1354,
+          "recall": 0.5831,
+          "generate": 0.1354,
+          "plan": 0.1805
+        },
+        "predicted_intent": "recall",
+        "confidence": 0.99
+      },
+      {
+        "text": "Compose a polished project update for stakeholders.",
+        "gold_intent": "generate",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.0,
+          "recall_density": 0.0,
+          "generate_density": 0.1429,
+          "plan_density": 0.0,
+          "token_length": 0.2333,
+          "question_flag": 0.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2788,
+          "memory": 0.1965,
+          "cognitive": 0.1778,
+          "predictive": 0.1778,
+          "world": 0.1691
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.3016,
+          "memory": 0.1649,
+          "cognitive": 0.2074,
+          "predictive": 0.1437,
+          "world": 0.1823
+        },
+        "module_trust": {
+          "semantic": 1.4832,
+          "memory": 1.151,
+          "cognitive": 1.6,
+          "predictive": 1.1088,
+          "world": 1.4786
+        },
+        "fused_scores": {
+          "search": 0.1368,
+          "summarize": 0.1368,
+          "recall": 0.1368,
+          "generate": 0.5653,
+          "plan": 0.1823
+        },
+        "predicted_intent": "generate",
+        "confidence": 0.99
+      },
+      {
+        "text": "Lay out milestones for integrating a symbolic reasoning layer.",
+        "gold_intent": "plan",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.0,
+          "recall_density": 0.0,
+          "generate_density": 0.0,
+          "plan_density": 0.1111,
+          "token_length": 0.3,
+          "question_flag": 0.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2788,
+          "memory": 0.1965,
+          "cognitive": 0.1778,
+          "predictive": 0.1778,
+          "world": 0.1691
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.3062,
+          "memory": 0.1636,
+          "cognitive": 0.2038,
+          "predictive": 0.1412,
+          "world": 0.1852
+        },
+        "module_trust": {
+          "semantic": 1.5326,
+          "memory": 1.1623,
+          "cognitive": 1.6,
+          "predictive": 1.1088,
+          "world": 1.5286
+        },
+        "fused_scores": {
+          "search": 0.1389,
+          "summarize": 0.1389,
+          "recall": 0.1389,
+          "generate": 0.1389,
+          "plan": 0.6127
+        },
+        "predicted_intent": "plan",
+        "confidence": 0.99
+      }
+    ]
+  },
+  "meta_controller": {
+    "module_trust": {
+      "semantic": 1.6,
+      "memory": 1.563767,
+      "cognitive": 1.6,
+      "predictive": 1.300614,
+      "world": 1.6
+    }
+  },
   "next_token_metrics": {
     "total": 5,
     "baseline_accuracy": 0.2,

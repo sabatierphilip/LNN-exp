@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
@@ -181,6 +182,149 @@ class WorldModelPlannerModule:
         return {k: v / denom for k, v in raw.items()}
 
 
+class LearnableGatingNetwork:
+    """Small learnable gate that maps context features to module weights.
+
+    The gate exposes a light online-learning interface so routing can adapt
+    during evaluation without requiring a heavyweight training loop.
+    """
+
+    module_names = ["semantic", "memory", "cognitive", "predictive", "world"]
+
+    def __init__(self, labels: Sequence[str], lr: float = 0.08) -> None:
+        self.labels = list(labels)
+        self.lr = lr
+        self.feature_names = [
+            "bias",
+            "search_density",
+            "summarize_density",
+            "recall_density",
+            "generate_density",
+            "plan_density",
+            "token_length",
+            "question_flag",
+            "imperative_flag",
+        ]
+        self.weights = {
+            module: [0.0 for _ in self.feature_names] for module in self.module_names
+        }
+        # Initialize near prior fusion coefficients for stable cold-start behavior.
+        base_bias = {
+            "semantic": 0.55,
+            "memory": 0.20,
+            "cognitive": 0.10,
+            "predictive": 0.10,
+            "world": 0.05,
+        }
+        for module in self.module_names:
+            self.weights[module][0] = base_bias[module]
+
+    def _softmax(self, values: Sequence[float]) -> List[float]:
+        shift = max(values)
+        exps = [math.exp(v - shift) for v in values]
+        total = sum(exps)
+        return [v / total for v in exps]
+
+    def extract_features(self, text: str) -> List[float]:
+        lowered = text.lower()
+        tokens = lowered.split()
+        n = max(1, len(tokens))
+        keyword_banks = {
+            "search_density": ["search", "find", "source", "benchmark", "paper"],
+            "summarize_density": ["summarize", "condense", "brief", "concise", "short"],
+            "recall_density": ["recall", "remember", "remind", "yesterday", "past"],
+            "generate_density": ["write", "draft", "compose", "answer", "explain"],
+            "plan_density": ["plan", "roadmap", "milestone", "steps", "checklist"],
+        }
+        densities = []
+        for words in keyword_banks.values():
+            count = sum(w in lowered for w in words)
+            densities.append(count / n)
+        return [
+            1.0,
+            *densities,
+            min(1.0, n / 30.0),
+            float("?" in text),
+            float(any(lowered.startswith(v) for v in ["please", "find", "write", "plan", "summarize"])),
+        ]
+
+    def gate(self, text: str) -> Tuple[Dict[str, float], List[float]]:
+        features = self.extract_features(text)
+        logits = [
+            sum(w * x for w, x in zip(self.weights[module], features))
+            for module in self.module_names
+        ]
+        probs = self._softmax(logits)
+        return {module: probs[i] for i, module in enumerate(self.module_names)}, features
+
+    def update(self, features: Sequence[float], rewarded_modules: Dict[str, float]) -> None:
+        """Online policy-style update from module utility signals."""
+        utilities = [rewarded_modules.get(module, 0.0) for module in self.module_names]
+        mean_u = sum(utilities) / len(utilities)
+        for m_idx, module in enumerate(self.module_names):
+            advantage = utilities[m_idx] - mean_u
+            for f_idx, value in enumerate(features):
+                self.weights[module][f_idx] += self.lr * advantage * value
+
+
+class ContextDependentArbitration:
+    """Contextual arbitration that rescales each module's per-intent contribution."""
+
+    def blend(
+        self,
+        text: str,
+        labels: Sequence[str],
+        module_scores: Dict[str, Dict[str, float]],
+        gate_weights: Dict[str, float],
+    ) -> Tuple[Dict[str, float], Dict[str, Dict[str, float]]]:
+        lowered = text.lower()
+        arbitration = {label: 1.0 for label in labels}
+        if any(x in lowered for x in ["why", "explain", "because"]):
+            for label in labels:
+                arbitration[label] *= 1.12 if label in ["generate", "plan"] else 0.95
+        if any(x in lowered for x in ["yesterday", "previous", "remember"]):
+            for label in labels:
+                arbitration[label] *= 1.25 if label == "recall" else 0.92
+        if any(x in lowered for x in ["papers", "sources", "benchmark"]):
+            for label in labels:
+                arbitration[label] *= 1.20 if label == "search" else 0.94
+
+        contributions: Dict[str, Dict[str, float]] = {label: {} for label in labels}
+        fused = {label: 0.0 for label in labels}
+        for module, per_label in module_scores.items():
+            for label in labels:
+                weighted = gate_weights[module] * per_label[label] * arbitration[label]
+                contributions[label][module] = weighted
+                fused[label] += weighted
+        return fused, contributions
+
+
+class MetaController:
+    """Self-regulating controller that adapts module trust using model confidence."""
+
+    def __init__(self, module_names: Sequence[str], adapt_rate: float = 0.2) -> None:
+        self.adapt_rate = adapt_rate
+        self.module_names = list(module_names)
+        self.module_trust = {module: 1.0 for module in module_names}
+
+    def adjust(
+        self,
+        gate_weights: Dict[str, float],
+        contributions: Dict[str, Dict[str, float]],
+        best_label: str,
+        confidence: float,
+    ) -> Dict[str, float]:
+        adjusted = {}
+        low_confidence = max(0.0, 0.75 - confidence)
+        for module, weight in gate_weights.items():
+            support = contributions[best_label].get(module, 0.0)
+            trust_signal = 1.0 + self.adapt_rate * (support - low_confidence)
+            self.module_trust[module] = max(0.5, min(1.6, self.module_trust[module] * trust_signal))
+            adjusted[module] = weight * self.module_trust[module]
+        denom = sum(adjusted.values())
+        return {k: v / denom for k, v in adjusted.items()}
+
+
 class PredictiveCodingModule:
     """Predictive-coding proxy: minimize mismatch between text cues and intent prototypes."""
 
@@ -238,31 +382,63 @@ class NeuroSymbolicRouter:
         self.cog_module = CognitiveArchitectureModule()
         self.world_module = WorldModelPlannerModule()
         self.pred_module = PredictiveCodingModule()
+        self.gating_network = LearnableGatingNetwork(self.labels)
+        self.arbitration = ContextDependentArbitration()
+        self.meta_controller = MetaController(self.gating_network.module_names)
+        self.last_trace: Dict[str, object] = {}
 
-    def predict(self, text: str) -> Tuple[str, float]:
+    def _base_module_scores(self, text: str) -> Dict[str, Dict[str, float]]:
         proto_scores = self.encoder.score(text)
         max_proto = {k: -1e9 for k in self.labels}
         for idx, value in enumerate(proto_scores):
             label = self.prototype_labels[idx]
             max_proto[label] = max(max_proto[label], float(value))
+        return {
+            "semantic": max_proto,
+            "memory": self.memory_module.score(text),
+            "cognitive": self.cog_module.score(text),
+            "predictive": self.pred_module.score(text),
+            "world": self.world_module.score(),
+        }
 
-        mem = self.memory_module.score(text)
-        cog = self.cog_module.score(text)
-        world = self.world_module.score()
-        pred = self.pred_module.score(text)
-
-        fused = {}
-        for label in self.labels:
-            fused[label] = (
-                0.55 * max_proto[label]
-                + 0.20 * mem[label]
-                + 0.10 * cog[label]
-                + 0.10 * pred[label]
-                + 0.05 * world[label]
-            )
+    def predict_with_trace(self, text: str, gold_intent: str | None = None) -> Tuple[str, float, Dict[str, object]]:
+        module_scores = self._base_module_scores(text)
+        gate_weights, features = self.gating_network.gate(text)
+        fused, contributions = self.arbitration.blend(text, self.labels, module_scores, gate_weights)
 
         best = max(fused, key=fused.get)
-        return best, float(max(0.5, min(0.99, fused[best] + 0.5)))
+        confidence = float(max(0.5, min(0.99, fused[best] + 0.5)))
+
+        adjusted_gate = self.meta_controller.adjust(gate_weights, contributions, best, confidence)
+        fused_adjusted, adjusted_contrib = self.arbitration.blend(text, self.labels, module_scores, adjusted_gate)
+        best = max(fused_adjusted, key=fused_adjusted.get)
+        confidence = float(max(0.5, min(0.99, fused_adjusted[best] + 0.5)))
+
+        if gold_intent is not None:
+            rewards = {}
+            for module in self.gating_network.module_names:
+                score_gap = adjusted_contrib[gold_intent][module] - adjusted_contrib[best][module]
+                rewards[module] = score_gap + (0.4 if best == gold_intent else -0.4)
+            self.gating_network.update(features, rewards)
+
+        trace = {
+            "features": {
+                name: round(features[i], 4)
+                for i, name in enumerate(self.gating_network.feature_names)
+            },
+            "raw_gate_weights": {k: round(v, 4) for k, v in gate_weights.items()},
+            "meta_adjusted_gate_weights": {k: round(v, 4) for k, v in adjusted_gate.items()},
+            "module_trust": {k: round(v, 4) for k, v in self.meta_controller.module_trust.items()},
+            "fused_scores": {k: round(v, 4) for k, v in fused_adjusted.items()},
+            "predicted_intent": best,
+            "confidence": round(confidence, 4),
+        }
+        self.last_trace = trace
+        return best, confidence, trace
+
+    def predict(self, text: str) -> Tuple[str, float]:
+        best, confidence, _ = self.predict_with_trace(text)
+        return best, confidence
 
 
 class NextTokenBaseline:
@@ -322,15 +498,17 @@ def evaluate(dataset_path: Path, out_path: Path, cache_dir: str) -> Dict[str, ob
     keyword_preds: List[Prediction] = []
     base_preds: List[Prediction] = []
     hybrid_preds: List[Prediction] = []
+    hybrid_traces: List[Dict[str, object]] = []
 
     for row in data:
         text, gold = row["text"], row["intent"]
         kp, kc = keyword.predict(text)
         bp, bc = base_router.predict(text)
-        hp, hc = hybrid_router.predict(text)
+        hp, hc, trace = hybrid_router.predict_with_trace(text, gold_intent=gold)
         keyword_preds.append(Prediction(text, gold, kp, kc, SYMBOLIC_PLANS[kp]))
         base_preds.append(Prediction(text, gold, bp, bc, SYMBOLIC_PLANS[bp]))
         hybrid_preds.append(Prediction(text, gold, hp, hc, SYMBOLIC_PLANS[hp]))
+        hybrid_traces.append({"text": text, "gold_intent": gold, **trace})
 
     def accuracy(items: Sequence[Prediction]) -> float:
         return sum(x.pred_intent == x.gold_intent for x in items) / len(items)
@@ -409,6 +587,21 @@ def evaluate(dataset_path: Path, out_path: Path, cache_dir: str) -> Dict[str, ob
         "base_bert_style_accuracy": base_acc,
         "neuro_symbolic_accuracy": hybrid_acc,
         "improvement_vs_base_bert": hybrid_acc - base_acc,
+        "learnable_gating": {
+            "feature_names": hybrid_router.gating_network.feature_names,
+            "module_names": hybrid_router.gating_network.module_names,
+            "final_weights": {
+                module: [round(x, 6) for x in weights]
+                for module, weights in hybrid_router.gating_network.weights.items()
+            },
+            "trace": hybrid_traces,
+        },
+        "meta_controller": {
+            "module_trust": {
+                module: round(value, 6)
+                for module, value in hybrid_router.meta_controller.module_trust.items()
+            }
+        },
         "next_token_metrics": {
             "total": len(NEXT_TOKEN_BENCHMARK),
             "baseline_accuracy": token_hits["baseline"] / len(NEXT_TOKEN_BENCHMARK),
