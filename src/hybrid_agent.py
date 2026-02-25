@@ -128,6 +128,7 @@ class SemanticEncoder:
 
     def __init__(self, cache_dir: str) -> None:
         self.mode = "tfidf"
+        self.backend_error = ""
         self._setup_backend(cache_dir)
 
     def _setup_backend(self, cache_dir: str) -> None:
@@ -149,7 +150,8 @@ class SemanticEncoder:
             self.model = AutoModel.from_pretrained(source, local_files_only=True).to(self.device)
             self.model.eval()
             self.mode = "bert"
-        except Exception:
+        except Exception as exc:
+            self.backend_error = str(exc)
             from sklearn.feature_extraction.text import TfidfVectorizer
             from sklearn.metrics.pairwise import cosine_similarity
 
@@ -175,6 +177,75 @@ class SemanticEncoder:
         cls = self.model(**encoded).last_hidden_state[:, 0, :]
         return self._F.normalize(cls, p=2, dim=-1)
 
+
+class BertDynamicPseudoCausalLM:
+    """Lightweight pseudo-causal token generator built on top of BERT embeddings.
+
+    The generator predicts the next token by appending a mask token to the running
+    context and projecting the contextualized mask representation onto the BERT
+    token embedding matrix. This gives a practical, local-only pseudo-autoregressive
+    decoder without requiring a dedicated causal checkpoint.
+    """
+
+    def __init__(self, encoder: "SemanticEncoder") -> None:
+        self.encoder = encoder
+        self._temperature = 0.9
+
+    def _top_tokens(self, context: str, top_k: int = 12) -> List[int]:
+        mask = self.encoder.tokenizer.mask_token
+        masked = f"{context} {mask}"
+        encoded = self.encoder.tokenizer(masked, return_tensors="pt", truncation=True).to(self.encoder.device)
+        mask_id = int(self.encoder.tokenizer.mask_token_id)
+        input_ids = encoded["input_ids"]
+        mask_positions = (input_ids == mask_id).nonzero(as_tuple=False)
+        if mask_positions.numel() == 0:
+            return [int(self.encoder.tokenizer.convert_tokens_to_ids("."))]
+        mask_pos = int(mask_positions[0, 1])
+
+        with self.encoder._torch.no_grad():
+            outputs = self.encoder.model(**encoded).last_hidden_state
+        mask_hidden = outputs[0, mask_pos]
+        vocab = self.encoder.model.get_input_embeddings().weight
+        logits = (mask_hidden @ vocab.T) / self._temperature
+
+        banned = {
+            int(self.encoder.tokenizer.pad_token_id or -1),
+            int(self.encoder.tokenizer.cls_token_id or -1),
+            int(self.encoder.tokenizer.sep_token_id or -1),
+            int(self.encoder.tokenizer.mask_token_id or -1),
+        }
+        top_vals, top_ids = self.encoder._torch.topk(logits, k=max(4, top_k * 2))
+        candidates = []
+        for token_id in [int(x) for x in top_ids.tolist()]:
+            if token_id in banned:
+                continue
+            tok = self.encoder.tokenizer.convert_ids_to_tokens(token_id)
+            if not tok or tok.strip() in {"", "[UNK]"}:
+                continue
+            candidates.append(token_id)
+            if len(candidates) >= top_k:
+                break
+        return candidates or [int(top_ids[0].item())]
+
+    def generate(self, seed: str, max_new_tokens: int = 36) -> Tuple[str, List[int]]:
+        """Generate freeform continuation and return both text and chosen token ids."""
+        if self.encoder.mode != "bert":
+            return "", []
+
+        chosen_ids: List[int] = []
+        context = seed.strip()
+        for _ in range(max_new_tokens):
+            choices = self._top_tokens(context)
+            token_id = choices[0]
+            chosen_ids.append(token_id)
+            piece = self.encoder.tokenizer.decode([token_id], clean_up_tokenization_spaces=True)
+            if piece:
+                context = f"{context} {piece}".strip()
+            if piece in {".", "!", "?"} and len(chosen_ids) > 10:
+                break
+
+        generated = self.encoder.tokenizer.decode(chosen_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+        return generated.strip(), chosen_ids
 
 class MemoryAugmentedModule:
     """MANN-style lightweight external memory via key-value overlap scores."""
@@ -706,7 +777,9 @@ class BertSemanticResponseGenerator:
     def __init__(self, encoder: "SemanticEncoder") -> None:
         self.encoder = encoder
         self.toolbox = SymbolicToolbox()
+        self.dynamic_lm = BertDynamicPseudoCausalLM(encoder)
         self.last_tool_outputs: List[Dict[str, object]] = []
+        self.last_generated_token_ids: List[int] = []
         self.tool_step_explanations = {
             "search": "query external evidence and rank reliable sources",
             "rank_sources": "evaluate source quality before synthesis",
@@ -762,6 +835,7 @@ class BertSemanticResponseGenerator:
         ]
         tool_outputs: List[Dict[str, object]] = []
         self.last_tool_outputs = []
+        self.last_generated_token_ids = []
 
         steps = max(3, min(7, 2 + int(round(confidence * 5))))
         for idx in range(steps):
@@ -770,15 +844,28 @@ class BertSemanticResponseGenerator:
             tool_outputs.append(tool_result)
             self.last_tool_outputs.append(tool_result)
             compact = json.dumps(tool_result, sort_keys=True)
-            candidates = [
-                f"Autoregressive step {idx + 1}: executed tool={step} with result={compact}.",
-                f"Self-referential update {idx + 1}: after {step}, I revise latent assumptions for {focus} and keep memory continuity ({memory_summary}).",
-                f"Tool-grounded continuation {idx + 1}: {step} output indicates {compact}; next token stream should emphasize actionable detail.",
-                f"Reasoning loop {idx + 1}: I used {step}, compared it with prior trace evidence, and prepared the next generation pass.",
-            ]
-            query = " ".join([prompt, " ".join(body_sentences[-2:]), compact, f"next_step={step}"])
-            scores = self._score_candidates(query, candidates)
-            body_sentences.append(candidates[max(range(len(scores)), key=lambda i: scores[i])])
+            seed = (
+                f"Tool step {idx + 1} executed {step}. "
+                f"Observed output: {compact}. "
+                f"Reason naturally about implications for {focus} while keeping memory continuity ({memory_summary})."
+            )
+
+            if self.encoder.mode == "bert":
+                generated, token_ids = self.dynamic_lm.generate(seed, max_new_tokens=42)
+                self.last_generated_token_ids.extend(token_ids)
+                bridge = generated if generated else "No additional language generated from dynamic LM."
+            else:
+                candidates = [
+                    f"Autoregressive step {idx + 1}: executed tool={step} with result={compact}.",
+                    f"Self-referential update {idx + 1}: after {step}, I revise latent assumptions for {focus} and keep memory continuity ({memory_summary}).",
+                    f"Tool-grounded continuation {idx + 1}: {step} output indicates {compact}; next token stream should emphasize actionable detail.",
+                    f"Reasoning loop {idx + 1}: I used {step}, compared it with prior trace evidence, and prepared the next generation pass.",
+                ]
+                query = " ".join([prompt, " ".join(body_sentences[-2:]), compact, f"next_step={step}"])
+                scores = self._score_candidates(query, candidates)
+                bridge = candidates[max(range(len(scores)), key=lambda i: scores[i])]
+
+            body_sentences.append(f"Autoregressive step {idx + 1}: executed tool={step} with result={compact}. {bridge}")
 
         tool_text = "; ".join(
             f"{idx + 1}) {step}: {self.tool_step_explanations.get(step, 'execute step')}"
@@ -819,6 +906,7 @@ def generate_autoregressive_reply(
         )
         if trace is not None and hasattr(generator, "last_tool_outputs"):
             trace["tool_outputs"] = list(generator.last_tool_outputs)
+            trace["generated_token_ids"] = list(getattr(generator, "last_generated_token_ids", []))
         return response
 
     fallback = [

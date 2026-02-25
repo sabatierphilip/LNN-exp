@@ -33,6 +33,7 @@ python src/hybrid_agent.py --cache-dir models --chat-prompt "Please reason over 
 
 - Freeform chat no longer emits only intent-routing templates.
 - The generator now runs an iterative self-referential autoregressive loop, grounded in BERT semantic scoring when available.
+- In BERT mode, each step uses a dynamic pseudo-causal next-token predictor (mask-position projection over BERT embeddings) to generate unconstrained natural-language bridges between tool actions.
 - It integrates symbolic tool steps (`SYMBOLIC_PLANS`) directly into generated output for auditable tool-aware responses.
 - Responses now include per-step `Tool outputs` traces to demonstrate that generation is grounded in tool execution rather than intent-only routing.
 

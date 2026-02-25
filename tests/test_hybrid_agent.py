@@ -31,7 +31,8 @@ def test_generate_autoregressive_reply_coherent():
         assert isinstance(reply, str) and len(reply.split()) > 30
         assert "Request accepted" in reply
         assert "Integrated tool route" in reply
-        assert "world_prior" in reply or "At iteration" in reply
+        assert "world_prior" in reply or "Autoregressive step" in reply
+        assert "Tool outputs:" in reply
         
         # Test with high confidence
         reply_high_conf = ha.generate_autoregressive_reply(
@@ -100,6 +101,7 @@ def test_run_freeform_turn_integrates_trace_and_response():
     assert "mutual_reasoning" in turn.trace
     assert "fused_scores" in turn.trace
     assert "tool_outputs" in turn.trace and isinstance(turn.trace["tool_outputs"], list)
+    assert "generated_token_ids" in turn.trace and isinstance(turn.trace["generated_token_ids"], list)
 
 
 def test_agentic_chat_orchestrator_multi_turn_stateful():
