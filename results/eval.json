@@ -6,12 +6,1670 @@
   "base_bert_style_accuracy": 0.5333333333333333,
   "neuro_symbolic_accuracy": 1.0,
   "improvement_vs_base_bert": 0.4666666666666667,
+  "learnable_gating": {
+    "feature_names": [
+      "bias",
+      "search_density",
+      "summarize_density",
+      "recall_density",
+      "generate_density",
+      "plan_density",
+      "token_length",
+      "question_flag",
+      "imperative_flag"
+    ],
+    "module_names": [
+      "semantic",
+      "memory",
+      "cognitive",
+      "predictive",
+      "world"
+    ],
+    "final_weights": {
+      "semantic": [
+        0.553838,
+        0.000203,
+        2.3e-05,
+        0.000118,
+        4.2e-05,
+        7.3e-05,
+        0.001167,
+        0.001923,
+        0.000392
+      ],
+      "memory": [
+        0.198625,
+        -1.9e-05,
+        -3e-05,
+        -1.9e-05,
+        -3.5e-05,
+        -4.4e-05,
+        -0.000453,
+        -0.000255,
+        -0.000237
+      ],
+      "cognitive": [
+        0.104762,
+        0.000125,
+        0.000157,
+        5.6e-05,
+        0.000176,
+        8.4e-05,
+        0.001539,
+        0.000745,
+        0.001432
+      ],
+      "predictive": [
+        0.097397,
+        -9.7e-05,
+        -4e-05,
+        -6.3e-05,
+        -2.8e-05,
+        -7e-05,
+        -0.000806,
+        -0.000998,
+        -0.000586
+      ],
+      "world": [
+        0.045379,
+        -0.000213,
+        -0.00011,
+        -9.3e-05,
+        -0.000155,
+        -4.3e-05,
+        -0.001447,
+        -0.001415,
+        -0.001002
+      ]
+    },
+    "trace": [
+      {
+        "text": "Look up the latest papers on neuro-symbolic reasoning and give me key takeaways.",
+        "gold_intent": "search",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0769,
+          "summarize_density": 0.0,
+          "recall_density": 0.0,
+          "generate_density": 0.0,
+          "plan_density": 0.0,
+          "token_length": 0.4333,
+          "question_flag": 0.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2788,
+          "memory": 0.1965,
+          "cognitive": 0.1778,
+          "predictive": 0.1778,
+          "world": 0.1691
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2798,
+          "memory": 0.1963,
+          "cognitive": 0.1777,
+          "predictive": 0.1775,
+          "world": 0.1687
+        },
+        "module_trust": {
+          "semantic": 1.014,
+          "memory": 1.0098,
+          "cognitive": 1.01,
+          "predictive": 1.0091,
+          "world": 1.0082
+        },
+        "mutual_reasoning": {
+          "rounds_executed": 2,
+          "history": [
+            {
+              "round": 1,
+              "disagreement": 0.044349
+            },
+            {
+              "round": 2,
+              "disagreement": 0.006361
+            }
+          ],
+          "consensus": {
+            "search": 0.2128,
+            "summarize": 0.201291,
+            "recall": 0.195414,
+            "generate": 0.194349,
+            "plan": 0.196147
+          },
+          "final_module_beliefs": {
+            "semantic": {
+              "search": 0.209332,
+              "summarize": 0.207575,
+              "recall": 0.196153,
+              "generate": 0.193202,
+              "plan": 0.193738
+            },
+            "memory": {
+              "search": 0.208199,
+              "summarize": 0.204596,
+              "recall": 0.195771,
+              "generate": 0.195436,
+              "plan": 0.195999
+            },
+            "cognitive": {
+              "search": 0.233707,
+              "summarize": 0.192941,
+              "recall": 0.191153,
+              "generate": 0.190822,
+              "plan": 0.191377
+            },
+            "predictive": {
+              "search": 0.212209,
+              "summarize": 0.198354,
+              "recall": 0.196515,
+              "generate": 0.196176,
+              "plan": 0.196746
+            },
+            "world": {
+              "search": 0.202507,
+              "summarize": 0.198955,
+              "recall": 0.197103,
+              "generate": 0.196761,
+              "plan": 0.204674
+            }
+          }
+        },
+        "fused_scores": {
+          "search": 0.2554,
+          "summarize": 0.1892,
+          "recall": 0.1837,
+          "generate": 0.1827,
+          "plan": 0.1844
+        },
+        "predicted_intent": "search",
+        "confidence": 0.7554
+      },
+      {
+        "text": "Summarize this architecture proposal into three bullet points.",
+        "gold_intent": "summarize",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.125,
+          "recall_density": 0.0,
+          "generate_density": 0.0,
+          "plan_density": 0.0,
+          "token_length": 0.2667,
+          "question_flag": 0.0,
+          "imperative_flag": 1.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2789,
+          "memory": 0.1964,
+          "cognitive": 0.1779,
+          "predictive": 0.1778,
+          "world": 0.169
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2806,
+          "memory": 0.1961,
+          "cognitive": 0.1777,
+          "predictive": 0.1772,
+          "world": 0.1683
+        },
+        "module_trust": {
+          "semantic": 1.0176,
+          "memory": 1.0097,
+          "cognitive": 1.0101,
+          "predictive": 1.0081,
+          "world": 1.0069
+        },
+        "mutual_reasoning": {
+          "rounds_executed": 2,
+          "history": [
+            {
+              "round": 1,
+              "disagreement": 0.042093
+            },
+            {
+              "round": 2,
+              "disagreement": 0.006022
+            }
+          ],
+          "consensus": {
+            "search": 0.198433,
+            "summarize": 0.209438,
+            "recall": 0.196773,
+            "generate": 0.196773,
+            "plan": 0.198582
+          },
+          "final_module_beliefs": {
+            "semantic": {
+              "search": 0.201233,
+              "summarize": 0.208327,
+              "recall": 0.196631,
+              "generate": 0.196631,
+              "plan": 0.197178
+            },
+            "memory": {
+              "search": 0.199524,
+              "summarize": 0.2029,
+              "recall": 0.199,
+              "generate": 0.199,
+              "plan": 0.199575
+            },
+            "cognitive": {
+              "search": 0.192115,
+              "summarize": 0.232507,
+              "recall": 0.191607,
+              "generate": 0.191607,
+              "plan": 0.192165
+            },
+            "predictive": {
+              "search": 0.199519,
+              "summarize": 0.202927,
+              "recall": 0.198991,
+              "generate": 0.198991,
+              "plan": 0.199571
+            },
+            "world": {
+              "search": 0.19805,
+              "summarize": 0.201445,
+              "recall": 0.197523,
+              "generate": 0.197523,
+              "plan": 0.205459
+            }
+          }
+        },
+        "fused_scores": {
+          "search": 0.1984,
+          "summarize": 0.2094,
+          "recall": 0.1968,
+          "generate": 0.1968,
+          "plan": 0.1986
+        },
+        "predicted_intent": "summarize",
+        "confidence": 0.7094
+      },
+      {
+        "text": "What did we decide yesterday about external memory size?",
+        "gold_intent": "recall",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.0,
+          "recall_density": 0.1111,
+          "generate_density": 0.0,
+          "plan_density": 0.0,
+          "token_length": 0.3,
+          "question_flag": 1.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2789,
+          "memory": 0.1964,
+          "cognitive": 0.1779,
+          "predictive": 0.1777,
+          "world": 0.169
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2819,
+          "memory": 0.196,
+          "cognitive": 0.1775,
+          "predictive": 0.1768,
+          "world": 0.1678
+        },
+        "module_trust": {
+          "semantic": 1.0341,
+          "memory": 1.0206,
+          "cognitive": 1.0208,
+          "predictive": 1.0177,
+          "world": 1.0157
+        },
+        "mutual_reasoning": {
+          "rounds_executed": 2,
+          "history": [
+            {
+              "round": 1,
+              "disagreement": 0.047664
+            },
+            {
+              "round": 2,
+              "disagreement": 0.006946
+            }
+          ],
+          "consensus": {
+            "search": 0.196197,
+            "summarize": 0.193067,
+            "recall": 0.222812,
+            "generate": 0.193067,
+            "plan": 0.194858
+          },
+          "final_module_beliefs": {
+            "semantic": {
+              "search": 0.193808,
+              "summarize": 0.191055,
+              "recall": 0.232496,
+              "generate": 0.191055,
+              "plan": 0.191587
+            },
+            "memory": {
+              "search": 0.195569,
+              "summarize": 0.19458,
+              "recall": 0.220129,
+              "generate": 0.19458,
+              "plan": 0.195143
+            },
+            "cognitive": {
+              "search": 0.191339,
+              "summarize": 0.190364,
+              "recall": 0.237013,
+              "generate": 0.190364,
+              "plan": 0.190919
+            },
+            "predictive": {
+              "search": 0.204358,
+              "summarize": 0.1941,
+              "recall": 0.212774,
+              "generate": 0.1941,
+              "plan": 0.194667
+            },
+            "world": {
+              "search": 0.197398,
+              "summarize": 0.196387,
+              "recall": 0.205559,
+              "generate": 0.196387,
+              "plan": 0.20427
+            }
+          }
+        },
+        "fused_scores": {
+          "search": 0.1805,
+          "summarize": 0.1776,
+          "recall": 0.2786,
+          "generate": 0.1776,
+          "plan": 0.1793
+        },
+        "predicted_intent": "recall",
+        "confidence": 0.7786
+      },
+      {
+        "text": "Draft a concise response explaining why MANN helps with long context.",
+        "gold_intent": "generate",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.0909,
+          "recall_density": 0.0,
+          "generate_density": 0.1818,
+          "plan_density": 0.0,
+          "token_length": 0.3667,
+          "question_flag": 0.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2792,
+          "memory": 0.1964,
+          "cognitive": 0.178,
+          "predictive": 0.1776,
+          "world": 0.1689
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2831,
+          "memory": 0.1958,
+          "cognitive": 0.1774,
+          "predictive": 0.1764,
+          "world": 0.1673
+        },
+        "module_trust": {
+          "semantic": 1.0454,
+          "memory": 1.0278,
+          "cognitive": 1.0281,
+          "predictive": 1.0239,
+          "world": 1.0212
+        },
+        "mutual_reasoning": {
+          "rounds_executed": 2,
+          "history": [
+            {
+              "round": 1,
+              "disagreement": 0.041752
+            },
+            {
+              "round": 2,
+              "disagreement": 0.005971
+            }
+          ],
+          "consensus": {
+            "search": 0.195215,
+            "summarize": 0.199166,
+            "recall": 0.195215,
+            "generate": 0.21339,
+            "plan": 0.197015
+          },
+          "final_module_beliefs": {
+            "semantic": {
+              "search": 0.195777,
+              "summarize": 0.20079,
+              "recall": 0.195777,
+              "generate": 0.211332,
+              "plan": 0.196324
+            },
+            "memory": {
+              "search": 0.197002,
+              "summarize": 0.198256,
+              "recall": 0.197002,
+              "generate": 0.210166,
+              "plan": 0.197574
+            },
+            "cognitive": {
+              "search": 0.191094,
+              "summarize": 0.192319,
+              "recall": 0.191094,
+              "generate": 0.233841,
+              "plan": 0.191652
+            },
+            "predictive": {
+              "search": 0.194758,
+              "summarize": 0.205303,
+              "recall": 0.194758,
+              "generate": 0.209853,
+              "plan": 0.195328
+            },
+            "world": {
+              "search": 0.19703,
+              "summarize": 0.198299,
+              "recall": 0.19703,
+              "generate": 0.202709,
+              "plan": 0.204932
+            }
+          }
+        },
+        "fused_scores": {
+          "search": 0.1855,
+          "summarize": 0.1892,
+          "recall": 0.1855,
+          "generate": 0.239,
+          "plan": 0.2206
+        },
+        "predicted_intent": "generate",
+        "confidence": 0.739
+      },
+      {
+        "text": "Create a step-by-step roadmap to train a compact world model chatbot.",
+        "gold_intent": "plan",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.0,
+          "recall_density": 0.0,
+          "generate_density": 0.0,
+          "plan_density": 0.0909,
+          "token_length": 0.3667,
+          "question_flag": 0.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2792,
+          "memory": 0.1964,
+          "cognitive": 0.178,
+          "predictive": 0.1776,
+          "world": 0.1688
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2842,
+          "memory": 0.1956,
+          "cognitive": 0.1773,
+          "predictive": 0.1761,
+          "world": 0.1668
+        },
+        "module_trust": {
+          "semantic": 1.0539,
+          "memory": 1.0312,
+          "cognitive": 1.0315,
+          "predictive": 1.0266,
+          "world": 1.0234
+        },
+        "mutual_reasoning": {
+          "rounds_executed": 2,
+          "history": [
+            {
+              "round": 1,
+              "disagreement": 0.037966
+            },
+            {
+              "round": 2,
+              "disagreement": 0.005637
+            }
+          ],
+          "consensus": {
+            "search": 0.19384,
+            "summarize": 0.19384,
+            "recall": 0.19384,
+            "generate": 0.19384,
+            "plan": 0.224642
+          },
+          "final_module_beliefs": {
+            "semantic": {
+              "search": 0.190934,
+              "summarize": 0.190934,
+              "recall": 0.190934,
+              "generate": 0.190934,
+              "plan": 0.236265
+            },
+            "memory": {
+              "search": 0.196588,
+              "summarize": 0.196588,
+              "recall": 0.196588,
+              "generate": 0.196588,
+              "plan": 0.213649
+            },
+            "cognitive": {
+              "search": 0.190599,
+              "summarize": 0.190599,
+              "recall": 0.190599,
+              "generate": 0.190599,
+              "plan": 0.237604
+            },
+            "predictive": {
+              "search": 0.196019,
+              "summarize": 0.196019,
+              "recall": 0.196019,
+              "generate": 0.196019,
+              "plan": 0.215926
+            },
+            "world": {
+              "search": 0.196573,
+              "summarize": 0.196573,
+              "recall": 0.196573,
+              "generate": 0.196573,
+              "plan": 0.213706
+            }
+          }
+        },
+        "fused_scores": {
+          "search": 0.1938,
+          "summarize": 0.1938,
+          "recall": 0.1938,
+          "generate": 0.1938,
+          "plan": 0.2247
+        },
+        "predicted_intent": "plan",
+        "confidence": 0.7247
+      },
+      {
+        "text": "Find benchmark results for Dreamer-v3 in dialogue settings.",
+        "gold_intent": "search",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.25,
+          "summarize_density": 0.0,
+          "recall_density": 0.0,
+          "generate_density": 0.0,
+          "plan_density": 0.0,
+          "token_length": 0.2667,
+          "question_flag": 0.0,
+          "imperative_flag": 1.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2793,
+          "memory": 0.1963,
+          "cognitive": 0.1781,
+          "predictive": 0.1776,
+          "world": 0.1687
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2853,
+          "memory": 0.1954,
+          "cognitive": 0.1773,
+          "predictive": 0.1757,
+          "world": 0.1663
+        },
+        "module_trust": {
+          "semantic": 1.0691,
+          "memory": 1.0418,
+          "cognitive": 1.0419,
+          "predictive": 1.0359,
+          "world": 1.0318
+        },
+        "mutual_reasoning": {
+          "rounds_executed": 2,
+          "history": [
+            {
+              "round": 1,
+              "disagreement": 0.037115
+            },
+            {
+              "round": 2,
+              "disagreement": 0.005372
+            }
+          ],
+          "consensus": {
+            "search": 0.216929,
+            "summarize": 0.195318,
+            "recall": 0.195318,
+            "generate": 0.195318,
+            "plan": 0.197117
+          },
+          "final_module_beliefs": {
+            "semantic": {
+              "search": 0.214514,
+              "summarize": 0.196234,
+              "recall": 0.196234,
+              "generate": 0.196234,
+              "plan": 0.196785
+            },
+            "memory": {
+              "search": 0.21829,
+              "summarize": 0.195285,
+              "recall": 0.195285,
+              "generate": 0.195285,
+              "plan": 0.195854
+            },
+            "cognitive": {
+              "search": 0.235018,
+              "summarize": 0.191106,
+              "recall": 0.191106,
+              "generate": 0.191106,
+              "plan": 0.191665
+            },
+            "predictive": {
+              "search": 0.213526,
+              "summarize": 0.196474,
+              "recall": 0.196474,
+              "generate": 0.196474,
+              "plan": 0.197051
+            },
+            "world": {
+              "search": 0.203827,
+              "summarize": 0.19707,
+              "recall": 0.19707,
+              "generate": 0.19707,
+              "plan": 0.204962
+            }
+          }
+        },
+        "fused_scores": {
+          "search": 0.2603,
+          "summarize": 0.1836,
+          "recall": 0.1836,
+          "generate": 0.1836,
+          "plan": 0.1853
+        },
+        "predicted_intent": "search",
+        "confidence": 0.7603
+      },
+      {
+        "text": "Condense the meeting notes into one paragraph for the team.",
+        "gold_intent": "summarize",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.1,
+          "recall_density": 0.0,
+          "generate_density": 0.0,
+          "plan_density": 0.0,
+          "token_length": 0.3333,
+          "question_flag": 0.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2795,
+          "memory": 0.1963,
+          "cognitive": 0.1781,
+          "predictive": 0.1775,
+          "world": 0.1686
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2863,
+          "memory": 0.1952,
+          "cognitive": 0.1772,
+          "predictive": 0.1754,
+          "world": 0.1659
+        },
+        "module_trust": {
+          "semantic": 1.0743,
+          "memory": 1.0429,
+          "cognitive": 1.0431,
+          "predictive": 1.036,
+          "world": 1.0315
+        },
+        "mutual_reasoning": {
+          "rounds_executed": 2,
+          "history": [
+            {
+              "round": 1,
+              "disagreement": 0.042614
+            },
+            {
+              "round": 2,
+              "disagreement": 0.006115
+            }
+          ],
+          "consensus": {
+            "search": 0.19587,
+            "summarize": 0.213941,
+            "recall": 0.196648,
+            "generate": 0.19587,
+            "plan": 0.197671
+          },
+          "final_module_beliefs": {
+            "semantic": {
+              "search": 0.195208,
+              "summarize": 0.216477,
+              "recall": 0.197349,
+              "generate": 0.195208,
+              "plan": 0.195757
+            },
+            "memory": {
+              "search": 0.197212,
+              "summarize": 0.210329,
+              "recall": 0.197461,
+              "generate": 0.197212,
+              "plan": 0.197787
+            },
+            "cognitive": {
+              "search": 0.19131,
+              "summarize": 0.233958,
+              "recall": 0.191553,
+              "generate": 0.19131,
+              "plan": 0.19187
+            },
+            "predictive": {
+              "search": 0.198699,
+              "summarize": 0.204367,
+              "recall": 0.198952,
+              "generate": 0.198699,
+              "plan": 0.199283
+            },
+            "world": {
+              "search": 0.197242,
+              "summarize": 0.202885,
+              "recall": 0.197494,
+              "generate": 0.197242,
+              "plan": 0.205136
+            }
+          }
+        },
+        "fused_scores": {
+          "search": 0.1959,
+          "summarize": 0.214,
+          "recall": 0.1966,
+          "generate": 0.1959,
+          "plan": 0.1976
+        },
+        "predicted_intent": "summarize",
+        "confidence": 0.714
+      },
+      {
+        "text": "Remind me which tokenizer we picked for the BERT baseline.",
+        "gold_intent": "recall",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.0,
+          "recall_density": 0.1,
+          "generate_density": 0.0,
+          "plan_density": 0.0,
+          "token_length": 0.3333,
+          "question_flag": 0.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2795,
+          "memory": 0.1963,
+          "cognitive": 0.1781,
+          "predictive": 0.1775,
+          "world": 0.1686
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2873,
+          "memory": 0.1951,
+          "cognitive": 0.1771,
+          "predictive": 0.1751,
+          "world": 0.1655
+        },
+        "module_trust": {
+          "semantic": 1.0788,
+          "memory": 1.0431,
+          "cognitive": 1.0436,
+          "predictive": 1.0354,
+          "world": 1.0305
+        },
+        "mutual_reasoning": {
+          "rounds_executed": 2,
+          "history": [
+            {
+              "round": 1,
+              "disagreement": 0.044491
+            },
+            {
+              "round": 2,
+              "disagreement": 0.006333
+            }
+          ],
+          "consensus": {
+            "search": 0.196187,
+            "summarize": 0.198369,
+            "recall": 0.211267,
+            "generate": 0.196187,
+            "plan": 0.19799
+          },
+          "final_module_beliefs": {
+            "semantic": {
+              "search": 0.195027,
+              "summarize": 0.201034,
+              "recall": 0.213334,
+              "generate": 0.195027,
+              "plan": 0.195577
+            },
+            "memory": {
+              "search": 0.198804,
+              "summarize": 0.199505,
+              "recall": 0.203502,
+              "generate": 0.198804,
+              "plan": 0.199385
+            },
+            "cognitive": {
+              "search": 0.191437,
+              "summarize": 0.192116,
+              "recall": 0.233013,
+              "generate": 0.191437,
+              "plan": 0.191997
+            },
+            "predictive": {
+              "search": 0.198795,
+              "summarize": 0.199501,
+              "recall": 0.203528,
+              "generate": 0.198795,
+              "plan": 0.199381
+            },
+            "world": {
+              "search": 0.197339,
+              "summarize": 0.198042,
+              "recall": 0.20205,
+              "generate": 0.197339,
+              "plan": 0.205231
+            }
+          }
+        },
+        "fused_scores": {
+          "search": 0.1962,
+          "summarize": 0.1984,
+          "recall": 0.2113,
+          "generate": 0.1962,
+          "plan": 0.1979
+        },
+        "predicted_intent": "recall",
+        "confidence": 0.7113
+      },
+      {
+        "text": "Write an answer comparing ACT-R and SOAR for our use case.",
+        "gold_intent": "generate",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.0,
+          "recall_density": 0.0,
+          "generate_density": 0.1818,
+          "plan_density": 0.0,
+          "token_length": 0.3667,
+          "question_flag": 0.0,
+          "imperative_flag": 1.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2797,
+          "memory": 0.1962,
+          "cognitive": 0.1783,
+          "predictive": 0.1774,
+          "world": 0.1684
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2882,
+          "memory": 0.1949,
+          "cognitive": 0.1772,
+          "predictive": 0.1747,
+          "world": 0.165
+        },
+        "module_trust": {
+          "semantic": 1.0838,
+          "memory": 1.0442,
+          "cognitive": 1.0448,
+          "predictive": 1.0358,
+          "world": 1.0301
+        },
+        "mutual_reasoning": {
+          "rounds_executed": 2,
+          "history": [
+            {
+              "round": 1,
+              "disagreement": 0.036878
+            },
+            {
+              "round": 2,
+              "disagreement": 0.005297
+            }
+          ],
+          "consensus": {
+            "search": 0.195701,
+            "summarize": 0.195701,
+            "recall": 0.195701,
+            "generate": 0.214013,
+            "plan": 0.198885
+          },
+          "final_module_beliefs": {
+            "semantic": {
+              "search": 0.196056,
+              "summarize": 0.196056,
+              "recall": 0.196056,
+              "generate": 0.211411,
+              "plan": 0.200421
+            },
+            "memory": {
+              "search": 0.197152,
+              "summarize": 0.197152,
+              "recall": 0.197152,
+              "generate": 0.210375,
+              "plan": 0.198171
+            },
+            "cognitive": {
+              "search": 0.191259,
+              "summarize": 0.191259,
+              "recall": 0.191259,
+              "generate": 0.233971,
+              "plan": 0.192252
+            },
+            "predictive": {
+              "search": 0.196597,
+              "summarize": 0.196597,
+              "recall": 0.196597,
+              "generate": 0.212589,
+              "plan": 0.197621
+            },
+            "world": {
+              "search": 0.197179,
+              "summarize": 0.197179,
+              "recall": 0.197179,
+              "generate": 0.20294,
+              "plan": 0.205522
+            }
+          }
+        },
+        "fused_scores": {
+          "search": 0.1957,
+          "summarize": 0.1957,
+          "recall": 0.1957,
+          "generate": 0.214,
+          "plan": 0.1989
+        },
+        "predicted_intent": "generate",
+        "confidence": 0.714
+      },
+      {
+        "text": "Plan the experiment matrix for ablations on memory slots and depth.",
+        "gold_intent": "plan",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.0,
+          "recall_density": 0.0,
+          "generate_density": 0.0,
+          "plan_density": 0.0909,
+          "token_length": 0.3667,
+          "question_flag": 0.0,
+          "imperative_flag": 1.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2797,
+          "memory": 0.1962,
+          "cognitive": 0.1785,
+          "predictive": 0.1774,
+          "world": 0.1683
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.289,
+          "memory": 0.1947,
+          "cognitive": 0.1773,
+          "predictive": 0.1744,
+          "world": 0.1646
+        },
+        "module_trust": {
+          "semantic": 1.0874,
+          "memory": 1.0441,
+          "cognitive": 1.045,
+          "predictive": 1.0348,
+          "world": 1.029
+        },
+        "mutual_reasoning": {
+          "rounds_executed": 2,
+          "history": [
+            {
+              "round": 1,
+              "disagreement": 0.044628
+            },
+            {
+              "round": 2,
+              "disagreement": 0.006332
+            }
+          ],
+          "consensus": {
+            "search": 0.195146,
+            "summarize": 0.198358,
+            "recall": 0.200375,
+            "generate": 0.196658,
+            "plan": 0.209462
+          },
+          "final_module_beliefs": {
+            "semantic": {
+              "search": 0.193462,
+              "summarize": 0.202299,
+              "recall": 0.201476,
+              "generate": 0.197612,
+              "plan": 0.20515
+            },
+            "memory": {
+              "search": 0.198456,
+              "summarize": 0.199493,
+              "recall": 0.200145,
+              "generate": 0.198948,
+              "plan": 0.202958
+            },
+            "cognitive": {
+              "search": 0.19113,
+              "summarize": 0.192136,
+              "recall": 0.192764,
+              "generate": 0.191607,
+              "plan": 0.232363
+            },
+            "predictive": {
+              "search": 0.196452,
+              "summarize": 0.197485,
+              "recall": 0.208181,
+              "generate": 0.196942,
+              "plan": 0.20094
+            },
+            "world": {
+              "search": 0.196967,
+              "summarize": 0.198006,
+              "recall": 0.19866,
+              "generate": 0.19746,
+              "plan": 0.208907
+            }
+          }
+        },
+        "fused_scores": {
+          "search": 0.1951,
+          "summarize": 0.1984,
+          "recall": 0.2004,
+          "generate": 0.1967,
+          "plan": 0.2094
+        },
+        "predicted_intent": "plan",
+        "confidence": 0.7094
+      },
+      {
+        "text": "Can you gather sources about predictive coding networks?",
+        "gold_intent": "search",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.125,
+          "summarize_density": 0.0,
+          "recall_density": 0.0,
+          "generate_density": 0.0,
+          "plan_density": 0.0,
+          "token_length": 0.2667,
+          "question_flag": 1.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2797,
+          "memory": 0.1962,
+          "cognitive": 0.1784,
+          "predictive": 0.1773,
+          "world": 0.1684
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2902,
+          "memory": 0.1945,
+          "cognitive": 0.177,
+          "predictive": 0.174,
+          "world": 0.1642
+        },
+        "module_trust": {
+          "semantic": 1.1032,
+          "memory": 1.0544,
+          "cognitive": 1.0555,
+          "predictive": 1.0438,
+          "world": 1.0374
+        },
+        "mutual_reasoning": {
+          "rounds_executed": 2,
+          "history": [
+            {
+              "round": 1,
+              "disagreement": 0.042194
+            },
+            {
+              "round": 2,
+              "disagreement": 0.006035
+            }
+          ],
+          "consensus": {
+            "search": 0.213641,
+            "summarize": 0.19614,
+            "recall": 0.19614,
+            "generate": 0.19614,
+            "plan": 0.19794
+          },
+          "final_module_beliefs": {
+            "semantic": {
+              "search": 0.215606,
+              "summarize": 0.195959,
+              "recall": 0.195959,
+              "generate": 0.195959,
+              "plan": 0.196516
+            },
+            "memory": {
+              "search": 0.210242,
+              "summarize": 0.197295,
+              "recall": 0.197295,
+              "generate": 0.197295,
+              "plan": 0.197874
+            },
+            "cognitive": {
+              "search": 0.233798,
+              "summarize": 0.19141,
+              "recall": 0.19141,
+              "generate": 0.19141,
+              "plan": 0.191972
+            },
+            "predictive": {
+              "search": 0.204299,
+              "summarize": 0.198778,
+              "recall": 0.198778,
+              "generate": 0.198778,
+              "plan": 0.199366
+            },
+            "world": {
+              "search": 0.202821,
+              "summarize": 0.197326,
+              "recall": 0.197326,
+              "generate": 0.197326,
+              "plan": 0.205202
+            }
+          }
+        },
+        "fused_scores": {
+          "search": 0.2565,
+          "summarize": 0.1844,
+          "recall": 0.1844,
+          "generate": 0.1844,
+          "plan": 0.186
+        },
+        "predicted_intent": "search",
+        "confidence": 0.7565
+      },
+      {
+        "text": "Give me the short version of this long training report.",
+        "gold_intent": "summarize",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.1,
+          "recall_density": 0.0,
+          "generate_density": 0.0,
+          "plan_density": 0.0,
+          "token_length": 0.3333,
+          "question_flag": 0.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2797,
+          "memory": 0.1962,
+          "cognitive": 0.1784,
+          "predictive": 0.1773,
+          "world": 0.1684
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2909,
+          "memory": 0.1944,
+          "cognitive": 0.177,
+          "predictive": 0.1738,
+          "world": 0.1639
+        },
+        "module_trust": {
+          "semantic": 1.1084,
+          "memory": 1.0556,
+          "cognitive": 1.0568,
+          "predictive": 1.0442,
+          "world": 1.0371
+        },
+        "mutual_reasoning": {
+          "rounds_executed": 2,
+          "history": [
+            {
+              "round": 1,
+              "disagreement": 0.040719
+            },
+            {
+              "round": 2,
+              "disagreement": 0.005811
+            }
+          ],
+          "consensus": {
+            "search": 0.195145,
+            "summarize": 0.214295,
+            "recall": 0.198474,
+            "generate": 0.195145,
+            "plan": 0.196941
+          },
+          "final_module_beliefs": {
+            "semantic": {
+              "search": 0.194526,
+              "summarize": 0.212178,
+              "recall": 0.20369,
+              "generate": 0.194526,
+              "plan": 0.195079
+            },
+            "memory": {
+              "search": 0.19697,
+              "summarize": 0.210472,
+              "recall": 0.198037,
+              "generate": 0.19697,
+              "plan": 0.19755
+            },
+            "cognitive": {
+              "search": 0.191092,
+              "summarize": 0.234029,
+              "recall": 0.192133,
+              "generate": 0.191092,
+              "plan": 0.191654
+            },
+            "predictive": {
+              "search": 0.196416,
+              "summarize": 0.212682,
+              "recall": 0.197487,
+              "generate": 0.196416,
+              "plan": 0.196999
+            },
+            "world": {
+              "search": 0.197002,
+              "summarize": 0.203055,
+              "recall": 0.198079,
+              "generate": 0.197002,
+              "plan": 0.204862
+            }
+          }
+        },
+        "fused_scores": {
+          "search": 0.1951,
+          "summarize": 0.2143,
+          "recall": 0.1985,
+          "generate": 0.1951,
+          "plan": 0.1969
+        },
+        "predicted_intent": "summarize",
+        "confidence": 0.7143
+      },
+      {
+        "text": "Which loss function did we use in run_17?",
+        "gold_intent": "recall",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.0,
+          "recall_density": 0.0,
+          "generate_density": 0.0,
+          "plan_density": 0.0,
+          "token_length": 0.2667,
+          "question_flag": 1.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.28,
+          "memory": 0.1961,
+          "cognitive": 0.1785,
+          "predictive": 0.1772,
+          "world": 0.1681
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2923,
+          "memory": 0.1941,
+          "cognitive": 0.1769,
+          "predictive": 0.1733,
+          "world": 0.1633
+        },
+        "module_trust": {
+          "semantic": 1.1148,
+          "memory": 1.0572,
+          "cognitive": 1.0585,
+          "predictive": 1.0448,
+          "world": 1.0372
+        },
+        "mutual_reasoning": {
+          "rounds_executed": 2,
+          "history": [
+            {
+              "round": 1,
+              "disagreement": 0.045734
+            },
+            {
+              "round": 2,
+              "disagreement": 0.006561
+            }
+          ],
+          "consensus": {
+            "search": 0.195473,
+            "summarize": 0.195473,
+            "recall": 0.216313,
+            "generate": 0.195473,
+            "plan": 0.197268
+          },
+          "final_module_beliefs": {
+            "semantic": {
+              "search": 0.19413,
+              "summarize": 0.19413,
+              "recall": 0.222929,
+              "generate": 0.19413,
+              "plan": 0.194682
+            },
+            "memory": {
+              "search": 0.197084,
+              "summarize": 0.197084,
+              "recall": 0.211086,
+              "generate": 0.197084,
+              "plan": 0.197663
+            },
+            "cognitive": {
+              "search": 0.191188,
+              "summarize": 0.191188,
+              "recall": 0.234684,
+              "generate": 0.191188,
+              "plan": 0.191751
+            },
+            "predictive": {
+              "search": 0.198568,
+              "summarize": 0.198568,
+              "recall": 0.205139,
+              "generate": 0.198568,
+              "plan": 0.199157
+            },
+            "world": {
+              "search": 0.19712,
+              "summarize": 0.19712,
+              "recall": 0.203659,
+              "generate": 0.19712,
+              "plan": 0.20498
+            }
+          }
+        },
+        "fused_scores": {
+          "search": 0.1954,
+          "summarize": 0.1954,
+          "recall": 0.2165,
+          "generate": 0.1954,
+          "plan": 0.1972
+        },
+        "predicted_intent": "recall",
+        "confidence": 0.7165
+      },
+      {
+        "text": "Compose a polished project update for stakeholders.",
+        "gold_intent": "generate",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.0,
+          "recall_density": 0.0,
+          "generate_density": 0.1429,
+          "plan_density": 0.0,
+          "token_length": 0.2333,
+          "question_flag": 0.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2797,
+          "memory": 0.1962,
+          "cognitive": 0.1785,
+          "predictive": 0.1773,
+          "world": 0.1683
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2929,
+          "memory": 0.194,
+          "cognitive": 0.1768,
+          "predictive": 0.1732,
+          "world": 0.1631
+        },
+        "module_trust": {
+          "semantic": 1.1206,
+          "memory": 1.0587,
+          "cognitive": 1.0601,
+          "predictive": 1.0455,
+          "world": 1.0372
+        },
+        "mutual_reasoning": {
+          "rounds_executed": 2,
+          "history": [
+            {
+              "round": 1,
+              "disagreement": 0.037352
+            },
+            {
+              "round": 2,
+              "disagreement": 0.005369
+            }
+          ],
+          "consensus": {
+            "search": 0.195622,
+            "summarize": 0.195622,
+            "recall": 0.195622,
+            "generate": 0.215715,
+            "plan": 0.197419
+          },
+          "final_module_beliefs": {
+            "semantic": {
+              "search": 0.195844,
+              "summarize": 0.195844,
+              "recall": 0.195844,
+              "generate": 0.216067,
+              "plan": 0.196403
+            },
+            "memory": {
+              "search": 0.197123,
+              "summarize": 0.197123,
+              "recall": 0.197123,
+              "generate": 0.210926,
+              "plan": 0.197704
+            },
+            "cognitive": {
+              "search": 0.191236,
+              "summarize": 0.191236,
+              "recall": 0.191236,
+              "generate": 0.234493,
+              "plan": 0.1918
+            },
+            "predictive": {
+              "search": 0.196569,
+              "summarize": 0.196569,
+              "recall": 0.196569,
+              "generate": 0.213138,
+              "plan": 0.197154
+            },
+            "world": {
+              "search": 0.197159,
+              "summarize": 0.197159,
+              "recall": 0.197159,
+              "generate": 0.203507,
+              "plan": 0.205017
+            }
+          }
+        },
+        "fused_scores": {
+          "search": 0.1956,
+          "summarize": 0.1956,
+          "recall": 0.1956,
+          "generate": 0.2158,
+          "plan": 0.1974
+        },
+        "predicted_intent": "generate",
+        "confidence": 0.7158
+      },
+      {
+        "text": "Lay out milestones for integrating a symbolic reasoning layer.",
+        "gold_intent": "plan",
+        "features": {
+          "bias": 1.0,
+          "search_density": 0.0,
+          "summarize_density": 0.0,
+          "recall_density": 0.0,
+          "generate_density": 0.0,
+          "plan_density": 0.1111,
+          "token_length": 0.3,
+          "question_flag": 0.0,
+          "imperative_flag": 0.0
+        },
+        "raw_gate_weights": {
+          "semantic": 0.2798,
+          "memory": 0.1961,
+          "cognitive": 0.1786,
+          "predictive": 0.1773,
+          "world": 0.1682
+        },
+        "meta_adjusted_gate_weights": {
+          "semantic": 0.2939,
+          "memory": 0.1938,
+          "cognitive": 0.1768,
+          "predictive": 0.1728,
+          "world": 0.1627
+        },
+        "module_trust": {
+          "semantic": 1.1272,
+          "memory": 1.0606,
+          "cognitive": 1.0621,
+          "predictive": 1.0463,
+          "world": 1.0379
+        },
+        "mutual_reasoning": {
+          "rounds_executed": 2,
+          "history": [
+            {
+              "round": 1,
+              "disagreement": 0.038287
+            },
+            {
+              "round": 2,
+              "disagreement": 0.005526
+            }
+          ],
+          "consensus": {
+            "search": 0.195644,
+            "summarize": 0.195644,
+            "recall": 0.195644,
+            "generate": 0.195644,
+            "plan": 0.217425
+          },
+          "final_module_beliefs": {
+            "semantic": {
+              "search": 0.194637,
+              "summarize": 0.194637,
+              "recall": 0.194637,
+              "generate": 0.194637,
+              "plan": 0.221451
+            },
+            "memory": {
+              "search": 0.197133,
+              "summarize": 0.197133,
+              "recall": 0.197133,
+              "generate": 0.197133,
+              "plan": 0.211467
+            },
+            "cognitive": {
+              "search": 0.191234,
+              "summarize": 0.191234,
+              "recall": 0.191234,
+              "generate": 0.191234,
+              "plan": 0.235066
+            },
+            "predictive": {
+              "search": 0.19862,
+              "summarize": 0.19862,
+              "recall": 0.19862,
+              "generate": 0.19862,
+              "plan": 0.205522
+            },
+            "world": {
+              "search": 0.197128,
+              "summarize": 0.197128,
+              "recall": 0.197128,
+              "generate": 0.197128,
+              "plan": 0.211488
+            }
+          }
+        },
+        "fused_scores": {
+          "search": 0.1956,
+          "summarize": 0.1956,
+          "recall": 0.1956,
+          "generate": 0.1956,
+          "plan": 0.2175
+        },
+        "predicted_intent": "plan",
+        "confidence": 0.7175
+      }
+    ]
+  },
+  "meta_controller": {
+    "module_trust": {
+      "semantic": 1.405481,
+      "memory": 1.187623,
+      "cognitive": 1.188495,
+      "predictive": 1.143591,
+      "world": 1.118785
+    }
+  },
+  "mutual_reasoning": {
+    "average_rounds": 2.0,
+    "relation_graph": {
+      "semantic": {
+        "semantic": 1.3,
+        "memory": 0.946011,
+        "cognitive": 0.939272,
+        "predictive": 0.944937,
+        "world": 0.942667
+      },
+      "memory": {
+        "semantic": 0.946011,
+        "memory": 1.3,
+        "cognitive": 0.935585,
+        "predictive": 0.947951,
+        "world": 0.946173
+      },
+      "cognitive": {
+        "semantic": 0.939272,
+        "memory": 0.935585,
+        "cognitive": 1.3,
+        "predictive": 0.934574,
+        "world": 0.93224
+      },
+      "predictive": {
+        "semantic": 0.944937,
+        "memory": 0.947951,
+        "cognitive": 0.934574,
+        "predictive": 1.3,
+        "world": 0.946551
+      },
+      "world": {
+        "semantic": 0.942667,
+        "memory": 0.946173,
+        "cognitive": 0.93224,
+        "predictive": 0.946551,
+        "world": 1.3
+      }
+    }
+  },
   "next_token_metrics": {
     "total": 5,
     "baseline_accuracy": 0.2,
     "base_router_accuracy": 0.8,
-    "hybrid_router_accuracy": 0.8,
-    "hybrid_vs_base_delta": 0.0,
+    "hybrid_router_accuracy": 0.6,
+    "hybrid_vs_base_delta": -0.2,
     "details": [
       {
         "prompt": "Please look up recent LNN papers and",
@@ -23,7 +1681,7 @@
         "gold": "compile",
         "baseline_pred": "summarize",
         "base_router_pred": "summarize",
-        "hybrid_router_pred": "summarize"
+        "hybrid_router_pred": "juggle"
       },
       {
         "prompt": "Can you condense these long notes into",
@@ -35,7 +1693,7 @@
         "gold": "bullets",
         "baseline_pred": "bullets",
         "base_router_pred": "bullets",
-        "hybrid_router_pred": "bullets"
+        "hybrid_router_pred": "circuits"
       },
       {
         "prompt": "Remind me what optimizer we used in",
@@ -139,8 +1797,8 @@
       {
         "prompt": "Summarize the previous experiment notes.",
         "gold_intent": "summarize",
-        "pred_intent": "summarize",
-        "response": "I will condense the material into concise bullets and keep key points. Request: Summarize the previous experiment notes. Next, I can execute the first step now if you want.",
+        "pred_intent": "recall",
+        "response": "I will retrieve prior decisions from memory and verify consistency. Request: Summarize the previous experiment notes. Next, I can execute the first step now if you want.",
         "coherent": true
       },
       {
