@@ -325,6 +325,112 @@ class MetaController:
         return {k: v / denom for k, v in adjusted.items()}
 
 
+class MutualReasoningEngine:
+    """Iterative multi-module belief exchange with dynamic relation learning.
+
+    Each module starts with its per-intent score vector. The engine then performs
+    several rounds of message passing where modules influence each other according
+    to a learned pairwise trust graph. When module disagreement is high, the
+    engine allocates additional rounds to improve consensus.
+    """
+
+    def __init__(self, module_names: Sequence[str], labels: Sequence[str], damping: float = 0.35) -> None:
+        self.module_names = list(module_names)
+        self.labels = list(labels)
+        self.damping = damping
+        self.relation = {
+            src: {dst: (1.0 if src == dst else 0.65) for dst in self.module_names}
+            for src in self.module_names
+        }
+
+    def _normalize(self, values: Dict[str, float]) -> Dict[str, float]:
+        shift = max(values.values())
+        exps = {k: math.exp(v - shift) for k, v in values.items()}
+        total = sum(exps.values())
+        return {k: exps[k] / total for k in values}
+
+    def _disagreement(self, beliefs: Dict[str, Dict[str, float]]) -> float:
+        pairwise = []
+        for i, m1 in enumerate(self.module_names):
+            for m2 in self.module_names[i + 1 :]:
+                pairwise.append(sum(abs(beliefs[m1][l] - beliefs[m2][l]) for l in self.labels) / len(self.labels))
+        return 0.0 if not pairwise else sum(pairwise) / len(pairwise)
+
+    def run(
+        self,
+        module_scores: Dict[str, Dict[str, float]],
+        gate_weights: Dict[str, float],
+        min_rounds: int = 2,
+        max_rounds: int = 5,
+    ) -> Tuple[Dict[str, Dict[str, float]], Dict[str, object]]:
+        beliefs = {m: self._normalize(module_scores[m]) for m in self.module_names}
+        history: List[Dict[str, float]] = []
+        steps = min_rounds
+        for idx in range(max_rounds):
+            disagreement = self._disagreement(beliefs)
+            history.append({"round": idx + 1, "disagreement": round(disagreement, 6)})
+            if idx + 1 >= min_rounds and disagreement < 0.06:
+                steps = idx + 1
+                break
+            if idx + 1 >= max_rounds:
+                steps = max_rounds
+                break
+
+            next_beliefs: Dict[str, Dict[str, float]] = {}
+            for target in self.module_names:
+                aggregated = {label: 0.0 for label in self.labels}
+                incoming_weight = 0.0
+                for source in self.module_names:
+                    influence = self.relation[source][target] * max(0.05, gate_weights.get(source, 0.0))
+                    incoming_weight += influence
+                    for label in self.labels:
+                        aggregated[label] += influence * beliefs[source][label]
+                if incoming_weight == 0:
+                    next_beliefs[target] = dict(beliefs[target])
+                    continue
+                merged = {}
+                for label in self.labels:
+                    peer_view = aggregated[label] / incoming_weight
+                    merged[label] = (1.0 - self.damping) * beliefs[target][label] + self.damping * peer_view
+                next_beliefs[target] = self._normalize(merged)
+            beliefs = next_beliefs
+
+            if idx + 1 >= min_rounds and disagreement > 0.18:
+                steps = min(max_rounds, idx + 2)
+
+        consensus = {label: 0.0 for label in self.labels}
+        for module in self.module_names:
+            for label in self.labels:
+                consensus[label] += gate_weights[module] * beliefs[module][label]
+        total = sum(consensus.values())
+        if total > 0:
+            consensus = {k: v / total for k, v in consensus.items()}
+        trace = {
+            "rounds_executed": steps,
+            "history": history[:steps],
+            "consensus": {k: round(v, 6) for k, v in consensus.items()},
+            "final_module_beliefs": {
+                m: {k: round(v, 6) for k, v in beliefs[m].items()} for m in self.module_names
+            },
+        }
+        return beliefs, trace
+
+    def update_relations(
+        self,
+        final_beliefs: Dict[str, Dict[str, float]],
+        predicted_label: str,
+        gold_label: str | None,
+    ) -> None:
+        if gold_label is None:
+            return
+        reward = 1.0 if predicted_label == gold_label else -1.0
+        for src in self.module_names:
+            for dst in self.module_names:
+                agree = 1.0 - abs(final_beliefs[src][gold_label] - final_beliefs[dst][gold_label])
+                delta = 0.04 * reward * (agree - 0.5)
+                self.relation[src][dst] = max(0.2, min(1.8, self.relation[src][dst] + delta))
+
+
 class PredictiveCodingModule:
     """Predictive-coding proxy: minimize mismatch between text cues and intent prototypes."""
 
@@ -385,6 +491,7 @@ class NeuroSymbolicRouter:
         self.gating_network = LearnableGatingNetwork(self.labels)
         self.arbitration = ContextDependentArbitration()
         self.meta_controller = MetaController(self.gating_network.module_names)
+        self.mutual_reasoner = MutualReasoningEngine(self.gating_network.module_names, self.labels)
         self.last_trace: Dict[str, object] = {}
 
     def _base_module_scores(self, text: str) -> Dict[str, Dict[str, float]]:
@@ -404,22 +511,33 @@ class NeuroSymbolicRouter:
     def predict_with_trace(self, text: str, gold_intent: str | None = None) -> Tuple[str, float, Dict[str, object]]:
         module_scores = self._base_module_scores(text)
         gate_weights, features = self.gating_network.gate(text)
-        fused, contributions = self.arbitration.blend(text, self.labels, module_scores, gate_weights)
 
-        best = max(fused, key=fused.get)
-        confidence = float(max(0.5, min(0.99, fused[best] + 0.5)))
+        reasoned_beliefs, mutual_trace = self.mutual_reasoner.run(module_scores, gate_weights)
+        fused, contributions = self.arbitration.blend(text, self.labels, reasoned_beliefs, gate_weights)
 
-        adjusted_gate = self.meta_controller.adjust(gate_weights, contributions, best, confidence)
-        fused_adjusted, adjusted_contrib = self.arbitration.blend(text, self.labels, module_scores, adjusted_gate)
+        provisional_best = max(fused, key=fused.get)
+        provisional_confidence = float(max(0.5, min(0.99, fused[provisional_best] + 0.5)))
+
+        adjusted_gate = self.meta_controller.adjust(gate_weights, contributions, provisional_best, provisional_confidence)
+        fused_adjusted, adjusted_contrib = self.arbitration.blend(text, self.labels, reasoned_beliefs, adjusted_gate)
         best = max(fused_adjusted, key=fused_adjusted.get)
         confidence = float(max(0.5, min(0.99, fused_adjusted[best] + 0.5)))
 
         if gold_intent is not None:
+            margin = fused_adjusted.get(gold_intent, 0.0) - max(
+                v for k, v in fused_adjusted.items() if k != gold_intent
+            )
             rewards = {}
             for module in self.gating_network.module_names:
-                score_gap = adjusted_contrib[gold_intent][module] - adjusted_contrib[best][module]
-                rewards[module] = score_gap + (0.4 if best == gold_intent else -0.4)
+                target_support = adjusted_contrib[gold_intent][module]
+                rival_support = max(
+                    adjusted_contrib[label][module]
+                    for label in self.labels
+                    if label != gold_intent
+                )
+                rewards[module] = (target_support - rival_support) + margin
             self.gating_network.update(features, rewards)
+            self.mutual_reasoner.update_relations(reasoned_beliefs, best, gold_intent)
 
         trace = {
             "features": {
@@ -429,6 +547,7 @@ class NeuroSymbolicRouter:
             "raw_gate_weights": {k: round(v, 4) for k, v in gate_weights.items()},
             "meta_adjusted_gate_weights": {k: round(v, 4) for k, v in adjusted_gate.items()},
             "module_trust": {k: round(v, 4) for k, v in self.meta_controller.module_trust.items()},
+            "mutual_reasoning": mutual_trace,
             "fused_scores": {k: round(v, 4) for k, v in fused_adjusted.items()},
             "predicted_intent": best,
             "confidence": round(confidence, 4),
@@ -579,6 +698,11 @@ def evaluate(dataset_path: Path, out_path: Path, cache_dir: str) -> Dict[str, ob
             "coherent": coherent,
         })
 
+    mutual_rounds = [
+        int(x.get("mutual_reasoning", {}).get("rounds_executed", 0))
+        for x in hybrid_traces
+    ]
+
     results = {
         "dataset_size": len(data),
         "base_router_mode": base_router.encoder.mode,
@@ -601,6 +725,13 @@ def evaluate(dataset_path: Path, out_path: Path, cache_dir: str) -> Dict[str, ob
                 module: round(value, 6)
                 for module, value in hybrid_router.meta_controller.module_trust.items()
             }
+        },
+        "mutual_reasoning": {
+            "average_rounds": (sum(mutual_rounds) / len(mutual_rounds)) if mutual_rounds else 0.0,
+            "relation_graph": {
+                src: {dst: round(v, 6) for dst, v in dst_map.items()}
+                for src, dst_map in hybrid_router.mutual_reasoner.relation.items()
+            },
         },
         "next_token_metrics": {
             "total": len(NEXT_TOKEN_BENCHMARK),

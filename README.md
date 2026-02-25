@@ -1,15 +1,16 @@
 # LNN-exp: Hybrid Router with Dynamic Self-Control
 
-This runnable CLI now includes a richer modular stack with **learned, context-aware control**:
+This runnable CLI includes a modular neuro-symbolic router with dynamic control and iterative mutual reasoning:
 
-1. **Neuro-symbolic hybrid** intent routing (semantic prototypes + symbolic plans).
+1. **Neuro-symbolic hybrid routing** (semantic prototypes + symbolic plans).
 2. **Memory-augmented module** (external key-value memory scoring).
-3. **Cognitive architecture module** (working-buffer style rule priors).
-4. **World-model planner module** (plan-utility prior from rollout proxy).
+3. **Cognitive architecture module** (working-buffer style priors).
+4. **World-model planner module** (plan-utility prior).
 5. **Predictive-coding module** (prototype mismatch minimization).
-6. **Learnable gating network** (online feature-to-module weighting policy).
-7. **Context-dependent module arbitration** (input-sensitive reweighting of intent support).
-8. **Meta-controller** (self-adaptive module trust calibrated by model confidence).
+6. **Learnable gating network** (context-feature → module-weight policy with online updates).
+7. **Context-dependent module arbitration** (input-sensitive intent evidence scaling).
+8. **Meta-controller** (confidence-aware self-adjustment of module trust).
+9. **Dynamic mutual reasoning engine** (iterative inter-module belief exchange with learned relation graph).
 
 ## Reproducible evaluation command
 
@@ -24,13 +25,14 @@ python src/hybrid_agent.py --dataset data/intent_benchmark.json --out results/ev
 - Learnable control diagnostics:
   - `learnable_gating.feature_names`
   - `learnable_gating.final_weights`
-  - `learnable_gating.trace` (per-example gate outputs and fused scores)
+  - `learnable_gating.trace` (per-example features, gate outputs, mutual reasoning trace, fused scores)
   - `meta_controller.module_trust`
+- Mutual reasoning diagnostics:
+  - `mutual_reasoning.average_rounds`
+  - `mutual_reasoning.relation_graph`
 - Next-token metrics (`next_token_metrics`).
 - Reasoning metrics (`reasoning_metrics`, exact match + step-F1).
-- **Autoregression test** (`autoregression_test`) including:
-  - `coherence_rate`
-  - `can_function_as_chatbot`
+- Autoregression viability metrics (`autoregression_test`).
 
 ## Chatbot viability rule
 
