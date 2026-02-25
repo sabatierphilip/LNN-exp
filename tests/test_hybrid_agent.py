@@ -85,3 +85,57 @@ def test_run_freeform_turn_integrates_trace_and_response():
     assert isinstance(turn.trace, dict)
     assert "mutual_reasoning" in turn.trace
     assert "fused_scores" in turn.trace
+
+
+def test_agentic_chat_orchestrator_multi_turn_stateful():
+    enc = ha.SemanticEncoder(cache_dir=str(Path.cwd() / "models"))
+    router = ha.NeuroSymbolicRouter(enc)
+    orchestrator = ha.AgenticChatOrchestrator(router)
+    prompts = ha.sample_chat_prompts()
+    session = orchestrator.run_session(prompts)
+
+    assert len(session.turns) == len(prompts)
+    assert session.state["turn_count"] == len(prompts)
+    assert isinstance(session.state["latent_slots"], dict)
+    assert any(session.state["latent_slots"].values())
+    assert isinstance(session.state["intent_transitions"], dict)
+
+    # Continuation responses should include world-state/autoreference signals.
+    assert any(
+        any(k in turn.response.lower() for k in ["world model", "memory", "continu", "latent"])
+        for turn in session.turns[1:]
+    )
+
+
+def test_evaluate_includes_chat_continuation_test(tmp_path):
+    dataset = Path("data/intent_benchmark.json")
+    out = tmp_path / "out_eval.json"
+    report = ha.evaluate(dataset, out, cache_dir=str(Path.cwd() / "models"))
+    assert "chat_continuation_test" in report
+    assert "multi_turn_capable" in report["chat_continuation_test"]
+    assert "world_state" in report["chat_continuation_test"]
+    assert report["chat_continuation_test"]["world_state"]["turn_count"] >= 1
+
+
+def test_difficult_chat_challenge_outputs_full_metrics():
+    enc = ha.SemanticEncoder(cache_dir=str(Path.cwd() / "models"))
+    router = ha.NeuroSymbolicRouter(enc)
+    report = ha.run_difficult_chat_challenge(router)
+
+    assert report["challenge_name"] == "long_range_exact_token_recall"
+    assert report["turn_count"] == len(ha.DIFFICULT_CHAT_CHALLENGE)
+    assert isinstance(report["transcript"], list) and len(report["transcript"]) == report["turn_count"]
+    assert report["exact_recall_success"] is True
+    assert "final_response_untruncated" in report
+    assert "quartz-17" in report["final_response_untruncated"].lower()
+    assert isinstance(report["final_response_untruncated"], str) and len(report["final_response_untruncated"]) > 20
+
+
+def test_evaluate_includes_difficult_chat_metrics(tmp_path):
+    dataset = Path("data/intent_benchmark.json")
+    out = tmp_path / "out_eval_hard.json"
+    report = ha.evaluate(dataset, out, cache_dir=str(Path.cwd() / "models"))
+    assert "difficult_chat_challenge" in report
+    hard = report["difficult_chat_challenge"]
+    assert "overall_success" in hard
+    assert "final_response_untruncated" in hard
