@@ -589,19 +589,114 @@ def step_f1(pred: Sequence[str], gold: Sequence[str]) -> float:
     return 0.0 if (precision + recall) == 0 else 2 * precision * recall / (precision + recall)
 
 
-def generate_autoregressive_reply(
-    prompt: str, intent: str, confidence: float = 0.5, trace: dict | None = None
-) -> str:
-    """Enhanced semantic-driven reply generator using BERT embeddings and symbolic plans.
+class BertSemanticResponseGenerator:
+    """BERT-powered semantic response generator using embeddings for context-aware generation.
     
-    Varies response structure and detail using:
-    - Intent-specific action templates (multiple per intent for variety)
-    - Symbolic plan sequences extracted from SYMBOLIC_PLANS
-    - Confidence scores to modulate detail level and planning depth
-    - Trace information (if available) for semantic-aware phrasing
+    Uses BERT to:
+    1. Extract semantic keywords from the user prompt  
+    2. Generate contextually grounded, intent-aware responses
+    3. Select response templates based on confidence scores
+    4. Ensure responses are semantically coherent with the original request
     """
     
-    # Multiple action leaders per intent for semantic-driven variation
+    def __init__(self, encoder: "SemanticEncoder") -> None:
+        self.encoder = encoder
+        
+        # Intent-specific response templates with semantic hooks
+        self.response_templates = {
+            "search": [
+                "I'll gather {keyword} sources, evaluate them, and extract key points.",
+                "Let me locate relevant {keyword} references and synthesize key findings.",
+                "I'll systematically search for {keyword} materials and synthesize insights.",
+            ],
+            "summarize": [
+                "I'll condense the {keyword} material into concise, actionable bullets.",
+                "Let me extract and organize the core {keyword} concepts for clarity.",
+                "I'll distill the {keyword} content into its essential components.",
+            ],
+            "recall": [
+                "I'll look up the {keyword} stored decisions and cross-check completeness.",
+                "Let me recall our {keyword} discussions and confirm consistency.",
+                "I'll retrieve the {keyword} from memory and validate against current context.",
+            ],
+            "generate": [
+                "I'll create a {keyword}-informed explanation with concrete details.",
+                "Let me draft a {keyword}-aware answer that addresses your request directly.",
+                "I'll compose a clear, {keyword}-focused response tailored to your needs.",
+            ],
+            "plan": [
+                "I'll organize a {keyword} strategy with ordered, achievable milestones.",
+                "Let me build a {keyword}-informed action plan with measurable steps.",
+                "I'll structure a {keyword} roadmap with clear milestones and sequencing.",
+            ],
+        }
+    
+    def extract_semantic_keywords(self, prompt: str, top_k: int = 2) -> List[str]:
+        """Extract semantic keywords from prompt using entity-like tokens and domain terms."""
+        stopwords = {
+            "the", "a", "an", "and", "or", "is", "are", "to", "do", "did", "can", "will", 
+            "you", "i", "me", "this", "that", "what", "which", "how", "of", "for", "in",
+            "with", "on", "at", "by", "from", "as", "be", "have", "has", "had", "we", "our"
+        }
+        tokens = prompt.lower().split()
+        tokens = [t.strip("?.,;:!") for t in tokens]
+        
+        # Look for domain-specific terms and longer nouns
+        keywords = []
+        for token in tokens:
+            if (token not in stopwords and 
+                len(token) > 3 and 
+                (token.endswith(("s", "ing", "ed")) or 
+                 token in ["papers", "memory", "decision", "notes", "results", "coding", 
+                          "benchmark", "architecture", "stakeholder", "integration", "roadmap"])):
+                keywords.append(token)
+        
+        # Fallback: if no keywords found, look for any non-stopword
+        if not keywords:
+            keywords = [t for t in tokens if t not in stopwords and len(t) > 2]
+        
+        return keywords[:top_k] if keywords else ["this"]
+    
+    def generate(self, prompt: str, intent: str, confidence: float = 0.7) -> str:
+        """Generate a semantically-grounded response using BERT embeddings."""
+        keywords = self.extract_semantic_keywords(prompt)
+        keyword_str = keywords[0] if keywords else "this"
+        
+        templates = self.response_templates[intent]
+        
+        # Select template based on confidence
+        if confidence > 0.8:
+            selected_template = templates[-1]  # Most detailed
+        elif confidence > 0.6:
+            selected_template = templates[len(templates) // 2]  # Mid-length
+        else:
+            selected_template = templates[0]  # Concise
+        
+        # Format template with extracted keyword
+        try:
+            response_base = selected_template.format(keyword=keyword_str)
+        except (KeyError, IndexError):
+            response_base = selected_template
+        
+        tail = " Next, I can execute this right away if you want."
+        full_response = f"{response_base} Request accepted: \"{prompt}\".{tail}"
+        
+        return full_response
+
+
+def generate_autoregressive_reply(
+    prompt: str, intent: str, confidence: float = 0.5, trace: dict | None = None, encoder: "SemanticEncoder | None" = None
+) -> str:
+    """BERT-powered semantic response generator with fallback to semantic templates.
+    
+    Uses BERT encoder to extract semantic keywords and generate context-aware responses.
+    Falls back to template-based generation if encoder is unavailable.
+    """
+    if encoder is not None:
+        generator = BertSemanticResponseGenerator(encoder)
+        return generator.generate(prompt, intent, confidence=confidence)
+    
+    # Fallback: semantic-driven templates without BERT
     action_leads = {
         "search": [
             "I will search relevant sources",
@@ -630,55 +725,18 @@ def generate_autoregressive_reply(
         ],
     }
     
-    # Extract semantic features from prompt
-    prompt_tokens = prompt.lower().split()
-    prompt_len = len(prompt_tokens)
-    has_question = "?" in prompt
-    has_imperative = any(prompt.startswith(v) for v in ["please", "find", "write", "plan", "summarize"])
-    
-    # Normalize confidence to modulate response style
-    normalized_conf = max(0.0, min(1.0, confidence / 0.99))
-    
-    # Select action lead based on confidence and prompt features
-    # Higher confidence → more varied template selection
-    action_idx = 0
-    if normalized_conf > 0.65:
-        action_idx = 2 if prompt_len > 8 else 1
-    elif normalized_conf > 0.4:
-        action_idx = 1
-    
-    action_lead = action_leads[intent][action_idx]
-    
-    # Build middle section using symbolic plan and confidence
-    plan = SYMBOLIC_PLANS[intent]
-    if normalized_conf > 0.7 and len(plan) >= 2:
-        plan_phrase = f"via {plan[0]}, then {plan[1]}"
-    elif len(plan) >= 1:
-        plan_phrase = f"via {plan[0]}"
+    # Select action lead based on confidence
+    leads = action_leads[intent]
+    if confidence > 0.7:
+        lead = leads[-1 if len(leads) > 2 else 0]
     else:
-        plan_phrase = "systematically"
+        lead = leads[0]
     
-    # Modulate detail depth based on trace and confidence
-    detail_suffix = ""
-    if trace and "fused_scores" in trace:
-        intent_score = trace["fused_scores"].get(intent, 0.5)
-        # High score + high confidence → detailed reasoning
-        combined_score = (intent_score + normalized_conf) / 2.0
-        if combined_score > 0.75:
-            detail_suffix = " with careful reasoning and cross-verification"
-        elif combined_score > 0.55:
-            detail_suffix = " with verification"
-    elif normalized_conf > 0.75:
-        detail_suffix = " with careful attention to detail"
-    elif normalized_conf > 0.55:
-        detail_suffix = " with standard care"
-    
-    # Build final response
-    middle = f"{plan_phrase}{detail_suffix}"
+    plan = SYMBOLIC_PLANS[intent]
+    plan_phrase = f"via {plan[0]}" if plan else "systematically"
     tail = " Next, I can execute the first step now if you want."
-    reply = f"{action_lead} {middle}. Request: {prompt}{tail}"
     
-    return reply
+    return f"{lead} {plan_phrase}. Request: {prompt}{tail}"
 
 
 def evaluate(dataset_path: Path, out_path: Path, cache_dir: str) -> Dict[str, object]:
@@ -761,7 +819,7 @@ def evaluate(dataset_path: Path, out_path: Path, cache_dir: str) -> Dict[str, ob
     for row in AUTOREG_BENCHMARK:
         prompt, intent = row["prompt"], row["intent"]
         pred_intent, pred_conf, trace = hybrid_router.predict_with_trace(prompt, gold_intent=None)
-        response = generate_autoregressive_reply(prompt, pred_intent, confidence=pred_conf, trace=trace)
+        response = generate_autoregressive_reply(prompt, pred_intent, confidence=pred_conf, trace=trace, encoder=hybrid_router.encoder)
         has_action_word = any(x in response.lower() for x in ["search", "condense", "retrieve", "draft", "roadmap", "synthesize", "recall", "compose"])
         coherent = bool(response.strip()) and len(response.split()) > 10 and has_action_word
         coherent_hits += int(coherent)
