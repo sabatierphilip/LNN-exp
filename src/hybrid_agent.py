@@ -114,12 +114,10 @@ class SemanticEncoder:
             self.model = AutoModel.from_pretrained(source, cache_dir=cache_dir).to(self.device)
             self.model.eval()
             self.mode = "bert"
-        except Exception:
-            from sklearn.feature_extraction.text import TfidfVectorizer
-            from sklearn.metrics.pairwise import cosine_similarity
-
-            self.vectorizer = TfidfVectorizer(ngram_range=(1, 2), lowercase=True)
-            self._cosine_similarity = cosine_similarity
+        except Exception as e:
+            raise RuntimeError(
+                "BERT backend is required. Install `torch` and `transformers`, and download the model via `scripts/download_bert.py --cache-dir models --model-name bert-base-uncased`."
+            ) from e
 
     def fit(self, texts: Sequence[str]) -> None:
         if self.mode == "tfidf":
