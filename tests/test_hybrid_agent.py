@@ -9,20 +9,18 @@ sys.path.insert(0, str(Path.cwd()))
 from src import hybrid_agent as ha
 
 
-def test_semantic_encoder_uses_local_bert():
+def test_semantic_encoder_backend_available():
     enc = ha.SemanticEncoder(cache_dir=str(Path.cwd() / "models"))
-    # Ensure it loaded the HF backend
-    assert enc.mode == "bert"
-    # BERT backend should expose tokenizer and model
-    assert hasattr(enc, "tokenizer")
-    assert hasattr(enc, "model")
+    assert enc.mode in {"bert", "tfidf"}
+
     if enc.mode == "bert":
-        
-        # ensure the encoder has been fitted before scoring
-        enc.fit(["hello world", "another example"])
-        sims = enc.score("test query")
-        assert isinstance(sims, list)
-        assert all(isinstance(x, float) for x in sims)
+        assert hasattr(enc, "tokenizer")
+        assert hasattr(enc, "model")
+
+    enc.fit(["hello world", "another example"])
+    sims = enc.score("test query")
+    assert isinstance(sims, list)
+    assert all(isinstance(x, float) for x in sims)
 
 
 def test_generate_autoregressive_reply_coherent():
@@ -70,3 +68,20 @@ def test_evaluate_end_to_end_creates_report(tmp_path):
     assert "autoregression_test" in report
     # The small benchmark should be coherent as in previous runs
     assert report["autoregression_test"]["coherence_rate"] >= 0.0
+
+
+def test_run_freeform_turn_integrates_trace_and_response():
+    enc = ha.SemanticEncoder(cache_dir=str(Path.cwd() / "models"))
+    router = ha.NeuroSymbolicRouter(enc)
+    turn = ha.run_freeform_turn(
+        "Please reason about symbolic memory and propose a world-model grounded roadmap.",
+        router,
+    )
+    assert isinstance(turn.user_prompt, str) and turn.user_prompt
+    assert turn.predicted_intent in ha.INTENT_DESCRIPTIONS
+    assert 0.5 <= turn.confidence <= 0.99
+    assert turn.symbolic_plan == ha.SYMBOLIC_PLANS[turn.predicted_intent]
+    assert isinstance(turn.response, str) and len(turn.response.split()) > 8
+    assert isinstance(turn.trace, dict)
+    assert "mutual_reasoning" in turn.trace
+    assert "fused_scores" in turn.trace

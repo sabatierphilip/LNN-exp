@@ -18,6 +18,12 @@ This runnable CLI includes a modular neuro-symbolic router with dynamic control 
 python src/hybrid_agent.py --dataset data/intent_benchmark.json --out results/eval.json
 ```
 
+## Reproducible freeform conversation command
+
+```bash
+python src/hybrid_agent.py --cache-dir models --chat-prompt "Please reason over our symbolic memory and build an integration roadmap."
+```
+
 ## Output metrics
 
 `results/eval.json` includes:

@@ -71,6 +71,19 @@ class Prediction:
     symbolic_plan: List[str]
 
 
+@dataclass
+class ConversationTurn:
+    """Structured freeform conversation output for CLI usage."""
+
+    user_prompt: str
+    predicted_intent: str
+    confidence: float
+    symbolic_plan: List[str]
+    world_model_prior: float
+    response: str
+    trace: Dict[str, object]
+
+
 class KeywordBaseline:
     """Small lexical baseline for intent classification."""
 
@@ -724,6 +737,28 @@ def generate_autoregressive_reply(prompt: str, intent: str, encoder: "SemanticEn
     return f"{fallback_templates[intent]} Request: {prompt}. Next, I can execute this right away if you want."
 
 
+def run_freeform_turn(prompt: str, router: "NeuroSymbolicRouter") -> ConversationTurn:
+    """Execute one freeform conversation turn with full neuro-symbolic tracing."""
+
+    pred_intent, confidence, trace = router.predict_with_trace(prompt, gold_intent=None)
+    response = generate_autoregressive_reply(
+        prompt,
+        pred_intent,
+        encoder=router.encoder,
+        confidence=confidence,
+    )
+    world_model_prior = float(trace.get("fused_scores", {}).get(pred_intent, 0.0))
+    return ConversationTurn(
+        user_prompt=prompt,
+        predicted_intent=pred_intent,
+        confidence=confidence,
+        symbolic_plan=SYMBOLIC_PLANS[pred_intent],
+        world_model_prior=world_model_prior,
+        response=response,
+        trace=trace,
+    )
+
+
 def evaluate(dataset_path: Path, out_path: Path, cache_dir: str) -> Dict[str, object]:
     """Run all metrics and write a single JSON report."""
     data = json.loads(dataset_path.read_text())
@@ -891,15 +926,26 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", type=Path, default=Path("data/intent_benchmark.json"))
     parser.add_argument("--out", type=Path, default=Path("results/eval.json"))
     parser.add_argument("--cache-dir", type=str, default="models")
+    parser.add_argument(
+        "--chat-prompt",
+        type=str,
+        default="",
+        help="Optional freeform prompt to run one fully traced conversation turn.",
+    )
     args = parser.parse_args()
 
-    report = evaluate(args.dataset, args.out, args.cache_dir)
-    print(
-        "done:",
-        f"mode={report['hybrid_router_mode']}",
-        f"intent_base={report['base_bert_style_accuracy']:.3f}",
-        f"intent_hybrid={report['neuro_symbolic_accuracy']:.3f}",
-        f"nexttok_hybrid={report['next_token_metrics']['hybrid_router_accuracy']:.3f}",
-        f"reason_hybrid_f1={report['reasoning_metrics']['hybrid_plan_step_f1']:.3f}",
-        f"chatbot={report['autoregression_test']['can_function_as_chatbot']}",
-    )
+    if args.chat_prompt:
+        router = NeuroSymbolicRouter(SemanticEncoder(args.cache_dir))
+        turn = run_freeform_turn(args.chat_prompt, router)
+        print(json.dumps(turn.__dict__, indent=2))
+    else:
+        report = evaluate(args.dataset, args.out, args.cache_dir)
+        print(
+            "done:",
+            f"mode={report['hybrid_router_mode']}",
+            f"intent_base={report['base_bert_style_accuracy']:.3f}",
+            f"intent_hybrid={report['neuro_symbolic_accuracy']:.3f}",
+            f"nexttok_hybrid={report['next_token_metrics']['hybrid_router_accuracy']:.3f}",
+            f"reason_hybrid_f1={report['reasoning_metrics']['hybrid_plan_step_f1']:.3f}",
+            f"chatbot={report['autoregression_test']['can_function_as_chatbot']}",
+        )
