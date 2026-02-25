@@ -1617,11 +1617,11 @@
   },
   "meta_controller": {
     "module_trust": {
-      "semantic": 1.405481,
-      "memory": 1.187623,
-      "cognitive": 1.188495,
-      "predictive": 1.143591,
-      "world": 1.118785
+      "semantic": 1.451836,
+      "memory": 1.202799,
+      "cognitive": 1.203439,
+      "predictive": 1.153244,
+      "world": 1.12509
     }
   },
   "mutual_reasoning": {
@@ -1791,37 +1791,127 @@
         "prompt": "Find papers on predictive coding and give key points.",
         "gold_intent": "search",
         "pred_intent": "search",
-        "response": "I will search relevant sources, rank evidence, and summarize findings. Request: Find papers on predictive coding and give key points. Next, I can execute the first step now if you want.",
+        "response": "I'll gather papers sources, evaluate them, and extract key points. Request accepted: \"Find papers on predictive coding and give key points.\". Next, I can execute this right away if you want.",
         "coherent": true
       },
       {
         "prompt": "Summarize the previous experiment notes.",
         "gold_intent": "summarize",
         "pred_intent": "recall",
-        "response": "I will retrieve prior decisions from memory and verify consistency. Request: Summarize the previous experiment notes. Next, I can execute the first step now if you want.",
+        "response": "I'll look up the previous stored decisions and cross-check completeness. Request accepted: \"Summarize the previous experiment notes.\". Next, I can execute this right away if you want.",
         "coherent": true
       },
       {
         "prompt": "What did we decide about memory size yesterday?",
         "gold_intent": "recall",
         "pred_intent": "recall",
-        "response": "I will retrieve prior decisions from memory and verify consistency. Request: What did we decide about memory size yesterday? Next, I can execute the first step now if you want.",
+        "response": "I'll look up the memory stored decisions and cross-check completeness. Request accepted: \"What did we decide about memory size yesterday?\". Next, I can execute this right away if you want.",
         "coherent": true
       },
       {
         "prompt": "Write a concise stakeholder update.",
         "gold_intent": "generate",
         "pred_intent": "generate",
-        "response": "I will draft a clear answer tailored to your request. Request: Write a concise stakeholder update. Next, I can execute the first step now if you want.",
+        "response": "I'll create a stakeholder-informed explanation with concrete details. Request accepted: \"Write a concise stakeholder update.\". Next, I can execute this right away if you want.",
         "coherent": true
       },
       {
         "prompt": "Create a roadmap for symbolic integration.",
         "gold_intent": "plan",
         "pred_intent": "plan",
-        "response": "I will produce an ordered roadmap with milestones and next actions. Request: Create a roadmap for symbolic integration. Next, I can execute the first step now if you want.",
+        "response": "I'll organize a roadmap strategy with ordered, achievable milestones. Request accepted: \"Create a roadmap for symbolic integration.\". Next, I can execute this right away if you want.",
         "coherent": true
       }
     ]
+  },
+  "chat_continuation_test": {
+    "turns": [
+      {
+        "user_prompt": "Find strong references on world-model-based agent planning for LNN systems.",
+        "predicted_intent": "search",
+        "response": "Agent mode: I will execute search around find using the current world model and then verify outcomes. Next, I can execute tool-level steps now if you want."
+      },
+      {
+        "user_prompt": "Great\u2014now condense those findings into concise bullets for leadership.",
+        "predicted_intent": "summarize",
+        "response": "Continuation: Based on prior turns, I will summarize the great\u2014now details, cross-reference memory slots, and produce a grounded output. Next, I can execute tool-level steps now if you want."
+      },
+      {
+        "user_prompt": "Remind me what constraints we decided for memory slots yesterday.",
+        "predicted_intent": "recall",
+        "response": "Continuation: Based on prior turns, I will recall the remind details, cross-reference memory slots, and produce a grounded output. Next, I can execute tool-level steps now if you want."
+      },
+      {
+        "user_prompt": "Draft a stakeholder-friendly update that ties all of this together.",
+        "predicted_intent": "generate",
+        "response": "Continuation: Based on prior turns, I will generate the draft details, cross-reference memory slots, and produce a grounded output. Next, I can execute tool-level steps now if you want."
+      },
+      {
+        "user_prompt": "Create a sequenced rollout plan with milestones and validation checks.",
+        "predicted_intent": "plan",
+        "response": "Continuation: Based on prior turns, I will plan the create details, cross-reference memory slots, and produce a grounded output. Next, I can execute tool-level steps now if you want."
+      }
+    ],
+    "world_state": {
+      "intent_transitions": {
+        "search": {
+          "summarize": 1
+        },
+        "summarize": {
+          "recall": 1
+        },
+        "recall": {
+          "generate": 1
+        },
+        "generate": {
+          "plan": 1
+        }
+      },
+      "latent_slots": {
+        "search": [
+          "find",
+          "strong",
+          "references",
+          "world-model-based",
+          "agent",
+          "planning"
+        ],
+        "summarize": [
+          "great\u2014now",
+          "condense",
+          "those",
+          "findings",
+          "concise",
+          "bullets"
+        ],
+        "recall": [
+          "remind",
+          "constraints",
+          "decided",
+          "memory",
+          "slots",
+          "yesterday"
+        ],
+        "generate": [
+          "draft",
+          "stakeholder-friendly",
+          "update",
+          "ties",
+          "together"
+        ],
+        "plan": [
+          "create",
+          "sequenced",
+          "rollout",
+          "plan",
+          "milestones",
+          "validation"
+        ]
+      },
+      "turn_count": 5,
+      "final_intent": "plan"
+    },
+    "continuation_grounding_rate": 1.0,
+    "multi_turn_capable": true
   }
 }

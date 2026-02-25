@@ -24,6 +24,19 @@ python src/hybrid_agent.py --dataset data/intent_benchmark.json --out results/ev
 python src/hybrid_agent.py --cache-dir models --chat-prompt "Please reason over our symbolic memory and build an integration roadmap."
 ```
 
+
+## Reproducible multi-turn chat continuation command
+
+```bash
+python src/hybrid_agent.py --cache-dir models --sample-chats
+```
+
+Or run your own scripted conversation:
+
+```bash
+python src/hybrid_agent.py --cache-dir models --chat-script data/chat_samples.json
+```
+
 ## Output metrics
 
 `results/eval.json` includes:
@@ -39,6 +52,7 @@ python src/hybrid_agent.py --cache-dir models --chat-prompt "Please reason over 
 - Next-token metrics (`next_token_metrics`).
 - Reasoning metrics (`reasoning_metrics`, exact match + step-F1).
 - Autoregression viability metrics (`autoregression_test`).
+- Multi-turn continuation diagnostics (`chat_continuation_test` with world-state and grounding rate).
 
 ## Chatbot viability rule
 
