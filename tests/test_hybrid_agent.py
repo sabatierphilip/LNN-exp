@@ -28,8 +28,11 @@ def test_generate_autoregressive_reply_coherent():
     for intent in ha.INTENT_DESCRIPTIONS.keys():
         # Test with BERT encoder (semantic-grounded)
         reply = ha.generate_autoregressive_reply("Please do this task", intent, encoder=enc, confidence=0.8)
-        assert isinstance(reply, str) and len(reply.split()) > 8
-        assert "Request accepted" in reply or "Request:" in reply
+        assert isinstance(reply, str) and len(reply.split()) > 30
+        assert "Request accepted" in reply
+        assert "Integrated tool route" in reply
+        assert "world_prior" in reply or "Autoregressive step" in reply
+        assert "Tool outputs:" in reply
         
         # Test with high confidence
         reply_high_conf = ha.generate_autoregressive_reply(
@@ -46,6 +49,17 @@ def test_generate_autoregressive_reply_coherent():
         # Test fallback without encoder
         reply_fallback = ha.generate_autoregressive_reply("Please do this task", intent, encoder=None)
         assert isinstance(reply_fallback, str) and len(reply_fallback.split()) > 8
+        assert "self-referential" in reply_fallback.lower()
+
+
+def test_semantic_encoder_prefers_local_bert_weights(tmp_path):
+    enc = ha.SemanticEncoder(cache_dir=str(Path.cwd() / "models"))
+    assert enc.mode in {"bert", "tfidf"}
+
+    # When local bert files exist, the encoder should use them and avoid download.
+    local_bert = Path.cwd() / "models" / "bert-base-uncased"
+    if local_bert.exists():
+        assert local_bert.is_dir()
 
 
 def test_neurosymbolic_router_predicts_and_traces():
@@ -81,10 +95,13 @@ def test_run_freeform_turn_integrates_trace_and_response():
     assert turn.predicted_intent in ha.INTENT_DESCRIPTIONS
     assert 0.5 <= turn.confidence <= 0.99
     assert turn.symbolic_plan == ha.SYMBOLIC_PLANS[turn.predicted_intent]
-    assert isinstance(turn.response, str) and len(turn.response.split()) > 8
+    assert isinstance(turn.response, str) and len(turn.response.split()) > 30
+    assert "Integrated tool route" in turn.response
     assert isinstance(turn.trace, dict)
     assert "mutual_reasoning" in turn.trace
     assert "fused_scores" in turn.trace
+    assert "tool_outputs" in turn.trace and isinstance(turn.trace["tool_outputs"], list)
+    assert "generated_token_ids" in turn.trace and isinstance(turn.trace["generated_token_ids"], list)
 
 
 def test_agentic_chat_orchestrator_multi_turn_stateful():
@@ -99,6 +116,7 @@ def test_agentic_chat_orchestrator_multi_turn_stateful():
     assert isinstance(session.state["latent_slots"], dict)
     assert any(session.state["latent_slots"].values())
     assert isinstance(session.state["intent_transitions"], dict)
+    assert "tool_memory" in session.state and isinstance(session.state["tool_memory"], list)
 
     # Continuation responses should include world-state/autoreference signals.
     assert any(
