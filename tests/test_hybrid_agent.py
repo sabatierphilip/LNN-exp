@@ -99,6 +99,7 @@ def test_run_freeform_turn_integrates_trace_and_response():
     assert isinstance(turn.trace, dict)
     assert "mutual_reasoning" in turn.trace
     assert "fused_scores" in turn.trace
+    assert "tool_outputs" in turn.trace and isinstance(turn.trace["tool_outputs"], list)
 
 
 def test_agentic_chat_orchestrator_multi_turn_stateful():
@@ -113,6 +114,7 @@ def test_agentic_chat_orchestrator_multi_turn_stateful():
     assert isinstance(session.state["latent_slots"], dict)
     assert any(session.state["latent_slots"].values())
     assert isinstance(session.state["intent_transitions"], dict)
+    assert "tool_memory" in session.state and isinstance(session.state["tool_memory"], list)
 
     # Continuation responses should include world-state/autoreference signals.
     assert any(

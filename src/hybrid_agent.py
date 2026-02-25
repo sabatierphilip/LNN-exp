@@ -91,6 +91,7 @@ class ChatSessionState:
     history: List[ConversationTurn] = field(default_factory=list)
     intent_transitions: Dict[str, Dict[str, int]] = field(default_factory=dict)
     latent_slots: Dict[str, List[str]] = field(default_factory=dict)
+    tool_memory: List[Dict[str, object]] = field(default_factory=list)
 
 
 @dataclass
@@ -625,6 +626,74 @@ def step_f1(pred: Sequence[str], gold: Sequence[str]) -> float:
     return 0.0 if (precision + recall) == 0 else 2 * precision * recall / (precision + recall)
 
 
+
+
+class SymbolicToolbox:
+    """Deterministic tool adapters used by freeform autoregression."""
+
+    def __init__(self) -> None:
+        self.tool_map = {
+            "search": self.search,
+            "rank_sources": self.rank_sources,
+            "summarize": self.summarize,
+            "recall": self.recall,
+            "verify": self.verify,
+            "generate": self.generate,
+            "plan": self.plan,
+            "decompose": self.decompose,
+        }
+
+    def _keywords(self, prompt: str) -> List[str]:
+        tokens = [x.strip(".,!?;:\"'()[]{}").lower() for x in prompt.split()]
+        stop = {"the", "and", "for", "with", "this", "that", "please", "about", "into", "from", "your"}
+        return [t for t in tokens if len(t) > 3 and t not in stop][:6] or ["task"]
+
+    def search(self, prompt: str, state: ChatSessionState | None = None) -> Dict[str, object]:
+        kws = self._keywords(prompt)[:3]
+        hits = [f"{kw}::{idx + 1}" for idx, kw in enumerate(kws)]
+        return {"tool": "search", "query_terms": kws, "hits": hits}
+
+    def rank_sources(self, prompt: str, state: ChatSessionState | None = None) -> Dict[str, object]:
+        kws = self._keywords(prompt)[:3]
+        ranked = [f"source_{kw}_A" for kw in kws] + [f"source_{kw}_B" for kw in kws[:1]]
+        return {"tool": "rank_sources", "ranked": ranked[:4]}
+
+    def summarize(self, prompt: str, state: ChatSessionState | None = None) -> Dict[str, object]:
+        kws = self._keywords(prompt)[:3]
+        return {"tool": "summarize", "bullets": [f"key point on {kw}" for kw in kws]}
+
+    def recall(self, prompt: str, state: ChatSessionState | None = None) -> Dict[str, object]:
+        if state and state.history:
+            last = state.history[-1]
+            return {
+                "tool": "recall",
+                "memory": f"last_intent={last.predicted_intent}",
+                "last_prompt": last.user_prompt[:80],
+            }
+        return {"tool": "recall", "memory": "no prior turns"}
+
+    def verify(self, prompt: str, state: ChatSessionState | None = None) -> Dict[str, object]:
+        return {"tool": "verify", "checks": ["intent alignment", "consistency", "actionability"], "status": "ok"}
+
+    def generate(self, prompt: str, state: ChatSessionState | None = None) -> Dict[str, object]:
+        kws = self._keywords(prompt)[:2]
+        return {"tool": "generate", "draft": f"draft response scoped to {', '.join(kws)}"}
+
+    def plan(self, prompt: str, state: ChatSessionState | None = None) -> Dict[str, object]:
+        k = self._keywords(prompt)[0]
+        return {"tool": "plan", "milestones": [f"define {k}", f"prototype {k}", f"validate {k}"]}
+
+    def decompose(self, prompt: str, state: ChatSessionState | None = None) -> Dict[str, object]:
+        kw = self._keywords(prompt)[0]
+        return {"tool": "decompose", "subtasks": [f"analyze {kw}", f"implement {kw}"]}
+
+    def run_step(self, step: str, prompt: str, state: ChatSessionState | None = None) -> Dict[str, object]:
+        fn = self.tool_map.get(step)
+        if fn is None:
+            return {"tool": step, "status": "noop"}
+        return fn(prompt, state)
+
+
 class BertSemanticResponseGenerator:
     """Experimental self-referential autoregressive starter using BERT embeddings.
 
@@ -636,6 +705,8 @@ class BertSemanticResponseGenerator:
 
     def __init__(self, encoder: "SemanticEncoder") -> None:
         self.encoder = encoder
+        self.toolbox = SymbolicToolbox()
+        self.last_tool_outputs: List[Dict[str, object]] = []
         self.tool_step_explanations = {
             "search": "query external evidence and rank reliable sources",
             "rank_sources": "evaluate source quality before synthesis",
@@ -677,7 +748,7 @@ class BertSemanticResponseGenerator:
         symbolic_plan: Sequence[str] | None = None,
         state: ChatSessionState | None = None,
     ) -> str:
-        """Generate a freeform response with iterative self-referential continuation."""
+        """Generate freeform text via self-referential autoregressive tool execution."""
         plan = list(symbolic_plan or SYMBOLIC_PLANS[intent])
         keywords = self._extract_keywords(prompt)
         focus = keywords[0]
@@ -685,35 +756,43 @@ class BertSemanticResponseGenerator:
         prior = float(fused.get(intent, 0.0)) if isinstance(fused, dict) else 0.0
         world_slots = [] if state is None else state.latent_slots.get(intent, [])[:3]
         memory_summary = ", ".join(world_slots) if world_slots else "no prior slots yet"
+
+        body_sentences: List[str] = [
+            f"I infer intent={intent} with confidence={confidence:.2f}, world_prior={prior:.2f}, and focus={focus}."
+        ]
+        tool_outputs: List[Dict[str, object]] = []
+        self.last_tool_outputs = []
+
+        steps = max(3, min(7, 2 + int(round(confidence * 5))))
+        for idx in range(steps):
+            step = plan[idx % len(plan)]
+            tool_result = self.toolbox.run_step(step, prompt, state=state)
+            tool_outputs.append(tool_result)
+            self.last_tool_outputs.append(tool_result)
+            compact = json.dumps(tool_result, sort_keys=True)
+            candidates = [
+                f"Autoregressive step {idx + 1}: executed tool={step} with result={compact}.",
+                f"Self-referential update {idx + 1}: after {step}, I revise latent assumptions for {focus} and keep memory continuity ({memory_summary}).",
+                f"Tool-grounded continuation {idx + 1}: {step} output indicates {compact}; next token stream should emphasize actionable detail.",
+                f"Reasoning loop {idx + 1}: I used {step}, compared it with prior trace evidence, and prepared the next generation pass.",
+            ]
+            query = " ".join([prompt, " ".join(body_sentences[-2:]), compact, f"next_step={step}"])
+            scores = self._score_candidates(query, candidates)
+            body_sentences.append(candidates[max(range(len(scores)), key=lambda i: scores[i])])
+
         tool_text = "; ".join(
             f"{idx + 1}) {step}: {self.tool_step_explanations.get(step, 'execute step')}"
             for idx, step in enumerate(plan)
         )
-
-        seed = (
-            f"I infer intent={intent} with confidence={confidence:.2f}, world_prior={prior:.2f}. "
-            f"Focus terms: {', '.join(keywords)}."
+        tool_digest = " | ".join(
+            f"{item.get('tool', 'unknown')}=>{json.dumps(item, sort_keys=True)}"
+            for item in tool_outputs[: len(plan)]
         )
-
-        body_sentences: List[str] = [seed]
-        steps = max(3, min(6, 2 + int(round(confidence * 4))))
-        for idx in range(steps):
-            step = plan[idx % len(plan)]
-            candidates = [
-                f"Self-reference step {idx + 1}: I will use {step} to advance {focus} while preserving continuity with memory slots ({memory_summary}).",
-                f"Autoregressive expansion {idx + 1}: the next best action is {step}, because it aligns with intent cues in your prompt and keeps tools synchronized.",
-                f"At iteration {idx + 1}, I update my latent world model for {focus}, run {step}, and evaluate whether confidence should increase.",
-                f"Tool-integration node {idx + 1}: execute {step}, emit trace metadata, and feed outputs back into the next generation pass.",
-            ]
-            query = " ".join([prompt, " ".join(body_sentences[-2:]), f"next_step={step}"])
-            scores = self._score_candidates(query, candidates)
-            choice = candidates[max(range(len(scores)), key=lambda i: scores[i])]
-            body_sentences.append(choice)
-
         ending = (
             f"Integrated tool route: {tool_text}. "
+            f"Tool outputs: {tool_digest}. "
             f"Request accepted: \"{prompt}\". "
-            "If you want, I can now execute this plan in strict tool-by-tool mode."
+            "I can continue this autoregressive loop with stricter constraints or longer horizon if you want."
         )
         return " ".join(body_sentences + [ending])
 
@@ -730,7 +809,7 @@ def generate_autoregressive_reply(
     """Generate a freeform, self-referential reply grounded in BERT embeddings."""
     if encoder is not None:
         generator = BertSemanticResponseGenerator(encoder)
-        return generator.generate(
+        response = generator.generate(
             prompt,
             intent,
             confidence=confidence,
@@ -738,6 +817,9 @@ def generate_autoregressive_reply(
             symbolic_plan=symbolic_plan,
             state=state,
         )
+        if trace is not None and hasattr(generator, "last_tool_outputs"):
+            trace["tool_outputs"] = list(generator.last_tool_outputs)
+        return response
 
     fallback = [
         f"I infer intent={intent} and will run a self-referential loop over your request.",
@@ -759,6 +841,7 @@ class EmbeddingDemaskAutoregressor:
 
     def __init__(self, encoder: "SemanticEncoder") -> None:
         self.encoder = encoder
+        self.toolbox = SymbolicToolbox()
         self.transition_bias = {
             "search": ["summarize", "plan"],
             "summarize": ["generate", "plan"],
@@ -787,6 +870,11 @@ class EmbeddingDemaskAutoregressor:
             state.latent_slots.setdefault(turn.predicted_intent, [])
             if slot not in state.latent_slots[turn.predicted_intent]:
                 state.latent_slots[turn.predicted_intent].append(slot)
+
+        tool_outputs = turn.trace.get("tool_outputs", []) if isinstance(turn.trace, dict) else []
+        if isinstance(tool_outputs, list) and tool_outputs:
+            state.tool_memory.extend(tool_outputs[:3])
+            state.tool_memory = state.tool_memory[-24:]
 
     def _transition_prior(self, state: ChatSessionState, intent: str) -> float:
         if not state.history:
@@ -872,6 +960,7 @@ class AgenticChatOrchestrator:
         snapshot = {
             "intent_transitions": state.intent_transitions,
             "latent_slots": state.latent_slots,
+            "tool_memory": state.tool_memory[-8:],
             "turn_count": len(state.history),
             "final_intent": state.history[-1].predicted_intent if state.history else None,
         }
